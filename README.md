@@ -27,7 +27,21 @@ uv sync
 
 *(If you need to add a new package, e.g., the `uvicorn` server, use `uv add uvicorn`)*
 
-### 3. Run the project
+### 3. Configure Database and Apply Migrations
+
+Create an `.env` file in the root directory with your database credentials. Make sure you use the `asyncpg` driver for PostgreSQL:
+
+```bash
+DATABASE_URL=postgresql+asyncpg://user:password@host/dbname
+```
+
+Then, apply the latest database migrations to your local database using Alembic:
+
+```bash
+uv run alembic upgrade head
+```
+
+### 4. Run the project
 
 Start the FastAPI server with live reloading enabled:
 
