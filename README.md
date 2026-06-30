@@ -32,7 +32,7 @@ uv sync
 Start the FastAPI server with live reloading enabled:
 
 ```bash
-uv run uvicorn app.main:app --reload
+uv run uvicorn app.main:app --port 8000 --reload
 ```
 
 The API will be accessible at `http://127.0.0.1:8000`. You can view the interactive API documentation at `http://127.0.0.1:8000/docs`.
