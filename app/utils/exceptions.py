@@ -13,18 +13,19 @@ class ErrorDetail(BaseModel):
 
 class APIResponse(BaseModel, Generic[T]):
     success: bool
+    message: Optional[str] = None
     data: Optional[T] = None
     meta: Optional[Dict[str, Any]] = None
     error: Optional[ErrorDetail] = None
 
-def create_success_response(data: Any = None, meta: Optional[Dict[str, Any]] = None) -> dict:
+def create_success_response(message:Optional[str] = None, data: Any = None, meta: Optional[Dict[str, Any]] = None) -> dict:
     """Helper to generate a successful response dictionary following the standard structure."""
-    return {
-        "success": True,
-        "data": data if data is not None else {},
-        "meta": meta if meta is not None else {},
-        "error": None
-    }
+    return APIResponse(
+        success=True,
+        message=message if message is not None else "Operation successful",
+        data=data if data is not None else {},
+        meta=meta if meta is not None else {},
+    )
 
 class BaseAppException(Exception):
     """Base exception for all custom API exceptions"""

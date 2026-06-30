@@ -1,8 +1,8 @@
-from typing import Generator
+from typing import AsyncGenerator
 from fastapi import Depends
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import get_db
 
-
-def get_session() -> Generator[Session, None, None]:
-    yield from get_db()
+async def get_session() -> AsyncGenerator[AsyncSession, None]:
+    async for session in get_db():
+        yield session

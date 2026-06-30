@@ -1,19 +1,15 @@
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 from app.models.user import User
-from app.schemas.user import UserCreate
 
+async def get_by_phone_number(db: AsyncSession, phone_number: str) -> User | None:
+    stmt = select(User).where(User.phone_number == phone_number)
+    result = await db.execute(stmt)
+    return result.scalars().first()
 
-def get_all(db: Session) -> list[User]:
-    return db.query(User).all()
-
-
-def get_by_id(db: Session, user_id: int) -> User | None:
-    return db.query(User).filter(User.id == user_id).first()
-
-
-def create(db: Session, data: UserCreate) -> User:
-    user = User(**data.model_dump())
-    db.add(user)
-    db.commit()
-    db.refresh(user)
-    return user
+async def create(db: AsyncSession, user_data: dict) -> User:
+    db_user = User(**user_data)
+    db.add(db_user)
+    await db.flush()
+    await db.refresh(db_user)
+    return db_user
