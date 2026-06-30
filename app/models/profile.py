@@ -5,14 +5,12 @@ from enum import Enum as PyEnum
 
 from sqlalchemy import String, DateTime, ForeignKey, func, Enum, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.dialects.postgresql import UUID
 
 from app.db.base import Base
 
 if TYPE_CHECKING:
     from .user import User
-
-def generate_profile_id() -> str:
-    return f"prf_{uuid.uuid4().hex[:8]}"
 
 class CurrentStage(str, PyEnum):
     PREGNANT = "PREGNANT"
@@ -24,10 +22,9 @@ class SharingPreference(str, PyEnum):
     ALWAYS_SHARE = "ALWAYS_SHARE"
     NEVER_SHARE = "NEVER_SHARE"
 
-class ContactPreference(str, PyEnum):
-    BOTH = "BOTH"
+class NotificationPreference(str, PyEnum):
     SMS = "SMS"
-    WHATSAPP = "WHATSAPP"
+    NOTIFICATION = "NOTIFICATION"
 
 class DoctorRequestStatus(str, PyEnum):
     ASSIGNED = "ASSIGNED"
@@ -44,14 +41,14 @@ class CompanionPreference(str, PyEnum):
 class Profile(Base):
     __tablename__ = "profiles"
 
-    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=generate_profile_id)
-    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), unique=True, index=True, nullable=False)
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), unique=True, index=True, nullable=False)
     
     current_stage: Mapped[CurrentStage | None] = mapped_column(Enum(CurrentStage, name="current_stage_enum", create_type=False), nullable=True)
     preferred_unit_ids: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
     
     emergency_sharing_preference: Mapped[SharingPreference | None] = mapped_column(Enum(SharingPreference, name="sharing_pref_enum", create_type=False), nullable=True)
-    contact_preference: Mapped[ContactPreference | None] = mapped_column(Enum(ContactPreference, name="contact_pref_enum", create_type=False), nullable=True)
+    notification_preference: Mapped[NotificationPreference | None] = mapped_column(Enum(NotificationPreference, name="notification_pref_enum", create_type=False), nullable=True)
     
     emergency_contact_name: Mapped[str | None] = mapped_column(String, nullable=True)
     emergency_contact_relationship: Mapped[str | None] = mapped_column(String, nullable=True)
@@ -59,7 +56,7 @@ class Profile(Base):
 
     companion_preference: Mapped[CompanionPreference | None] = mapped_column(Enum(CompanionPreference, name="companion_pref_enum", create_type=False), nullable=True)
 
-    personal_doctor_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    personal_doctor_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
     personal_doctor_request_status: Mapped[DoctorRequestStatus | None] = mapped_column(Enum(DoctorRequestStatus, name="doctor_req_status_enum", create_type=False), nullable=True)
     qr_passport_token: Mapped[str | None] = mapped_column(String, unique=True, index=True, nullable=True)
     

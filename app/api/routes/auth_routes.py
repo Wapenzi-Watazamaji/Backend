@@ -1,0 +1,19 @@
+from fastapi import APIRouter, Depends, status
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.api import deps
+from app.schemas.user import UserCreate, UserRead, UserLogin, Token
+from app.utils.exceptions import create_success_response, APIResponse
+from app.services import user_service
+
+router = APIRouter()
+
+@router.post("/register", response_model=APIResponse[UserRead], status_code=status.HTTP_201_CREATED)
+async def register(user_in: UserCreate, db: AsyncSession = Depends(deps.get_db)):
+    db_user = await user_service.register_user(db, user_in)
+    return create_success_response(message="User registered successfully", data=db_user)
+
+@router.post("/login", response_model=APIResponse[Token])
+async def login(login_in: UserLogin, db: AsyncSession = Depends(deps.get_db)):
+    token_data = await user_service.login_user(db, login_in)
+    return create_success_response(message="User logged in successfully", data=token_data)

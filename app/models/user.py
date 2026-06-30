@@ -5,11 +5,9 @@ from enum import Enum as PyEnum
 
 from sqlalchemy import String, Boolean, DateTime, Date, func, Enum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.dialects.postgresql import UUID
 
 from app.db.base import Base
-
-def generate_user_id() -> str:
-    return f"usr_{uuid.uuid4().hex[:8]}"
 
 class UserRole(str, PyEnum):
     MOTHER = "MOTHER"
@@ -23,7 +21,7 @@ class Gender(str, PyEnum):
 class User(Base):
     __tablename__ = "users"
 
-    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=generate_user_id)
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     phone_number: Mapped[str] = mapped_column(String, unique=True, index=True, nullable=False)
     password_hash: Mapped[str] = mapped_column(String, nullable=False)
     role: Mapped[UserRole] = mapped_column(Enum(UserRole, name="user_role_enum", create_type=False), nullable=False)
@@ -42,5 +40,7 @@ class User(Base):
 
     if TYPE_CHECKING:
         from .profile import Profile
+        from .consent import Consent
         
     profile: Mapped["Profile"] = relationship("Profile", back_populates="user", uselist=False, cascade="all, delete-orphan")
+    consents: Mapped[list["Consent"]] = relationship("Consent", back_populates="user", cascade="all, delete-orphan")
