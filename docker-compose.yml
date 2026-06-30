@@ -1,0 +1,52 @@
+services:
+
+  # ─── FastAPI Application ──────────────────────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: binticare_api
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      # Inside docker, redis service is reachable by its service name "redis"
+      REDIS_URL: redis://redis:6379/0
+    ports:
+      - "8085:8085"
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - binticare_net
+    volumes:
+      - ./app:/app/app   # bind-mount for hot-reload during development
+
+  # ─── Redis ───────────────────────────────────────────────────────────────────
+  # Docker pulls the Redis image automatically — no manual installation needed.
+  redis:
+    image: redis:7.2-alpine
+    container_name: binticare_redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data   # persists redis data across container restarts
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - binticare_net
+
+# ─── Named Volumes ────────────────────────────────────────────────────────────
+volumes:
+  redis_data:
+    driver: local
+
+# ─── Networks ─────────────────────────────────────────────────────────────────
+networks:
+  binticare_net:
+    driver: bridge
