@@ -2,11 +2,11 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    PROJECT_NAME: str
-    DATABASE_URL: str
-    SECRET_KEY: str
+    PROJECT_NAME: str 
+    DATABASE_URL: str 
     DB_USERNAME: str
-    DB_PASSWORD: str
+    DB_PASSWORD: str 
+    SECRET_KEY: str
     REDIS_URL: str
     REDIS_PASSWORD: str
 

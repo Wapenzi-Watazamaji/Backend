@@ -10,7 +10,9 @@ engine = create_async_engine(
     connect_args={
         "ssl": "require",
         "statement_cache_size": 0,
-    }
+    },
+    pool_pre_ping=True,
+    pool_recycle=300
 )
 
 # Create the async session factory

@@ -11,6 +11,7 @@ from app.db.base import Base
 
 class UserRole(str, PyEnum):
     USER = "USER"
+    MOTHER = "MOTHER"
     CLINICIAN = "CLINICIAN"
     FACILITY_ADMIN = "FACILITY_ADMIN"
 

@@ -16,11 +16,9 @@ from app.utils.exceptions import UnauthorizedError, ForbiddenError
 
 _bearer_scheme = HTTPBearer(auto_error=False)
 
-
 async def get_session() -> AsyncGenerator[AsyncSession, None]:
     async for session in get_db():
         yield session
-
 
 get_db_dep = get_session
 
