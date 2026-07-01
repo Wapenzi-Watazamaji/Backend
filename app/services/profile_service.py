@@ -83,6 +83,10 @@ async def get_or_refresh_qr_token(db: AsyncSession, user: User, refresh: bool = 
 
 
 async def request_personal_doctor(db: AsyncSession, user: User, facility_id: uuid.UUID) -> ProfileRead:
+    facility = await facility_repository.get_by_id(db, facility_id)
+    if not facility:
+        raise NotFoundError(message="The specified facility does not exist")
+
     profile = await profile_repository.get_by_user_id(db, user.id)
     if not profile:
         profile = await profile_repository.create(db, user.id)
