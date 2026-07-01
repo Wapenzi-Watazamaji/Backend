@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 from typing import Optional
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.facility import FacilityType, FacilityStatus
 from app.models.staff import StaffRole, StaffStatus
@@ -33,8 +33,8 @@ class FacilityCreate(BaseModel):
     address: str
     phone_number: str
     email: Optional[str] = None
-    latitude: Optional[float] = None
-    longitude: Optional[float] = None
+    latitude: Optional[float] = Field(None, ge=-90.0, le=90.0, description="Latitude must be between -90 and 90")
+    longitude: Optional[float] = Field(None, ge=-180.0, le=180.0, description="Longitude must be between -180 and 180")
     services_offered: Optional[list[str]] = []
     readiness: Optional[dict] = {}
 
@@ -45,8 +45,8 @@ class FacilityUpdate(BaseModel):
     address: Optional[str] = None
     phone_number: Optional[str] = None
     email: Optional[str] = None
-    latitude: Optional[float] = None
-    longitude: Optional[float] = None
+    latitude: Optional[float] = Field(None, ge=-90.0, le=90.0, description="Latitude must be between -90 and 90")
+    longitude: Optional[float] = Field(None, ge=-180.0, le=180.0, description="Longitude must be between -180 and 180")
     services_offered: Optional[list[str]] = None
     readiness: Optional[dict] = None
 
