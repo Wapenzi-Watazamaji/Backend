@@ -37,9 +37,11 @@ class Token(BaseModel):
     access_token: str
     refresh_token: str
     token_type: str
+    staff_memberships: Optional[list] = None
 
 class TokenPayload(BaseModel):
     sub: str
 
 class RefreshTokenRequest(BaseModel):
     refresh_token: str
+

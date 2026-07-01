@@ -1,8 +1,9 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.repositories import user_repository
-from app.schemas.user import UserCreate, UserLogin, Token,UserCreateSmsOnly
+from app.schemas.user import UserCreate, UserLogin, Token, UserCreateSmsOnly
 from app.core.security import get_password_hash, verify_password, create_access_token, create_refresh_token
 from app.utils.exceptions import PhoneAlreadyRegisteredError, InvalidCredentialsError
+from app.models.user import UserRole
 import jwt
 from app.core.config import settings
 from app.core.security import ALGORITHM
@@ -42,10 +43,22 @@ async def login_user(db: AsyncSession, login_in: UserLogin) -> Token:
         raise InvalidCredentialsError(
             message="Incorrect phone number or password"
         )
-    
+
     access_token = create_access_token(subject=str(user.id))
     refresh_token = create_refresh_token(subject=str(user.id))
-    return Token(access_token=access_token, refresh_token=refresh_token, token_type="bearer")
+
+    staff_memberships = None
+    if user.role in (UserRole.CLINICIAN, UserRole.FACILITY_ADMIN):
+        from app.services.facility_service import get_staff_memberships
+        memberships = await get_staff_memberships(db, user.id)
+        staff_memberships = [m.model_dump() for m in memberships]
+
+    return Token(
+        access_token=access_token,
+        refresh_token=refresh_token,
+        token_type="bearer",
+        staff_memberships=staff_memberships,
+    )
 
 
 async def refresh_user_token(db: AsyncSession, refresh_token: str) -> Token:

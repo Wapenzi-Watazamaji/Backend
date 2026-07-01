@@ -3,9 +3,9 @@ from typing import TYPE_CHECKING
 from datetime import datetime
 from enum import Enum as PyEnum
 
-from sqlalchemy import String, DateTime, ForeignKey, func, Enum, JSON
+from sqlalchemy import String, DateTime, ForeignKey, func, Enum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, ARRAY
 
 from app.db.base import Base
 
@@ -45,7 +45,7 @@ class Profile(Base):
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), unique=True, index=True, nullable=False)
     
     current_stage: Mapped[CurrentStage | None] = mapped_column(Enum(CurrentStage, name="current_stage_enum", create_type=False), nullable=True)
-    preferred_unit_ids: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    preferred_unit_ids: Mapped[list[uuid.UUID] | None] = mapped_column(ARRAY(UUID(as_uuid=True)), nullable=True, default=None)
     
     emergency_sharing_preference: Mapped[SharingPreference | None] = mapped_column(Enum(SharingPreference, name="sharing_pref_enum", create_type=False), nullable=True)
     notification_preference: Mapped[NotificationPreference | None] = mapped_column(Enum(NotificationPreference, name="notification_pref_enum", create_type=False), nullable=True)
