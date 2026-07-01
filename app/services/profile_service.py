@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.user import User
 from app.models.profile import DoctorRequestStatus
-from app.repositories import profile_repository
+from app.repositories import profile_repository, facility_repository
 from app.schemas.profile import ProfileCreate, ProfileUpdate, ProfileRead
 from app.utils.exceptions import NotFoundError, PhoneAlreadyRegisteredError, ValidationError
 
@@ -16,6 +16,12 @@ async def create_profile(db: AsyncSession, user: User, profile_in: ProfileCreate
     profile = await profile_repository.create(db, user.id)
 
     update_data = profile_in.model_dump(exclude_unset=True)
+    
+    if "preferred_facility_id" in update_data and update_data["preferred_facility_id"]:
+        facility = await facility_repository.get_by_id(db, update_data["preferred_facility_id"])
+        if not facility:
+            raise NotFoundError(message="The specified preferred facility does not exist")
+
     update_data = _flatten_emergency_contact(update_data)
 
     if update_data:
@@ -50,7 +56,17 @@ async def update_my_profile(db: AsyncSession, user: User, profile_in: ProfileUpd
     if not profile:
         profile = await profile_repository.create(db, user.id)
 
-    update_data = _flatten_emergency_contact(profile_in.model_dump(exclude_unset=True))
+    update_data = profile_in.model_dump(exclude_unset=True)
+    
+    if "preferred_facility_id" in update_data and update_data["preferred_facility_id"]:
+        new_facility_id = update_data["preferred_facility_id"]
+        # Only validate if it's actually changing
+        if profile.preferred_facility_id != new_facility_id:
+            facility = await facility_repository.get_by_id(db, new_facility_id)
+            if not facility:
+                raise NotFoundError(message="The specified preferred facility does not exist")
+            
+    update_data = _flatten_emergency_contact(update_data)
     profile = await profile_repository.update(db, profile, update_data)
     return ProfileRead.from_orm_with_contact(profile)
 

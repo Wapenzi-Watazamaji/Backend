@@ -21,7 +21,7 @@ Creates a profile for the authenticated user. Returns `409` if a profile already
     "phone": "+254721556002"
   },
   "companion_preference": "BOTH",
-  "preferred_unit_ids": ["3fa85f64-5717-4562-b3fc-2c963f66afa6"]
+  "preferred_facility_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
 }
 ```
 
@@ -50,7 +50,7 @@ Returns the authenticated user's profile. If no profile record exists yet, one i
     "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
     "user_id": "1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed",
     "current_stage": "PREGNANT",
-    "preferred_unit_ids": ["3fa85f64-5717-4562-b3fc-2c963f66afa6", "1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed"],
+    "preferred_facility_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
     "emergency_sharing_preference": "ASK_FIRST",
     "notification_preference": "NOTIFICATION",
     "emergency_contact": {
@@ -93,7 +93,7 @@ Partially updates the authenticated user's profile. All fields are optional — 
     "phone": "+254721556002"
   },
   "companion_preference": "BOTH",
-  "preferred_unit_ids": ["3fa85f64-5717-4562-b3fc-2c963f66afa6", "1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed"]
+  "preferred_facility_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
 }
 ```
 
@@ -107,7 +107,7 @@ Partially updates the authenticated user's profile. All fields are optional — 
 | `emergency_contact.relationship` | string | ❌ | |
 | `emergency_contact.phone` | string | ❌ | |
 | `companion_preference` | enum | ❌ | `AI_DOC` \| `PERSONAL_DOCTOR` \| `BOTH` \| `NONE` |
-| `preferred_unit_ids` | UUID[] | ❌ | Array of facility UUIDs |
+| `preferred_facility_id` | UUID | ❌ | ID of preferred facility |
 
 **Response `200 OK`** — Updated `ProfileRead` object (same shape as `GET /me`).
 

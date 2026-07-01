@@ -16,7 +16,7 @@ async def get_by_qr_token(db: AsyncSession, qr_token: str) -> Profile | None:
 
 
 async def create(db: AsyncSession, user_id: uuid.UUID) -> Profile:
-    profile = Profile(user_id=user_id, preferred_unit_ids=[])
+    profile = Profile(user_id=user_id)
     db.add(profile)
     await db.flush()
     await db.refresh(profile)

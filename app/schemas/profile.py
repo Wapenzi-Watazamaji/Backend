@@ -16,7 +16,7 @@ class ProfileRead(BaseModel):
     id: uuid.UUID
     user_id: uuid.UUID
     current_stage: Optional[CurrentStage] = None
-    preferred_unit_ids: Optional[list[uuid.UUID]] = None
+    preferred_facility_id: Optional[uuid.UUID] = None
     emergency_sharing_preference: Optional[SharingPreference] = None
     notification_preference: Optional[NotificationPreference] = None
     emergency_contact: Optional[EmergencyContact] = None
@@ -35,7 +35,7 @@ class ProfileRead(BaseModel):
             id=profile.id,
             user_id=profile.user_id,
             current_stage=profile.current_stage,
-            preferred_unit_ids=profile.preferred_unit_ids,
+            preferred_facility_id=profile.preferred_facility_id,
             emergency_sharing_preference=profile.emergency_sharing_preference,
             notification_preference=profile.notification_preference,
             emergency_contact=EmergencyContact(
@@ -58,7 +58,7 @@ class ProfileUpdate(BaseModel):
     notification_preference: Optional[NotificationPreference] = None
     emergency_contact: Optional[EmergencyContact] = None
     companion_preference: Optional[CompanionPreference] = None
-    preferred_unit_ids: Optional[list[uuid.UUID]] = None
+    preferred_facility_id: Optional[uuid.UUID] = None
 
 
 class ProfileCreate(BaseModel):
@@ -67,7 +67,7 @@ class ProfileCreate(BaseModel):
     notification_preference: Optional[NotificationPreference] = None
     emergency_contact: Optional[EmergencyContact] = None
     companion_preference: Optional[CompanionPreference] = None
-    preferred_unit_ids: Optional[list[uuid.UUID]] = None
+    preferred_facility_id: Optional[uuid.UUID] = None
 
 
 class PersonalDoctorRequest(BaseModel):
