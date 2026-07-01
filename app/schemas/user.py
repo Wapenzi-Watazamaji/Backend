@@ -1,7 +1,7 @@
 from pydantic import BaseModel, ConfigDict
 from datetime import date, datetime
 from typing import Optional
-from app.models.user import UserRole, Gender
+from app.models.user import UserRole, Gender, AccountType
 import uuid
 
 class UserBase(BaseModel):
@@ -16,6 +16,9 @@ class UserBase(BaseModel):
 
 class UserCreate(UserBase):
     password: str
+
+class UserCreateSmsOnly(UserBase):
+    pass
 
 class UserLogin(BaseModel):
     phone_number: str
