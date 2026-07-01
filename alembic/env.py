@@ -13,6 +13,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 from app.core.config import settings
+import app.models  # Import all models to ensure they are registered with Base.metadata
 from app.db.base import Base
 
 # this is the Alembic Config object, which provides
