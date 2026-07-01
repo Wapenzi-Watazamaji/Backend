@@ -10,7 +10,7 @@ from sqlalchemy.dialects.postgresql import UUID
 from app.db.base import Base
 
 class UserRole(str, PyEnum):
-    MOTHER = "MOTHER"
+    USER = "USER"
     CLINICIAN = "CLINICIAN"
     FACILITY_ADMIN = "FACILITY_ADMIN"
 
@@ -18,13 +18,18 @@ class Gender(str, PyEnum):
     FEMALE = "FEMALE"
     MALE = "MALE"
 
+class AccountType(str, PyEnum):
+    FULL = "FULL"
+    SMS_ONLY = "SMS_ONLY"
+
 class User(Base):
     __tablename__ = "users"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     phone_number: Mapped[str] = mapped_column(String, unique=True, index=True, nullable=False)
-    password_hash: Mapped[str] = mapped_column(String, nullable=False)
+    password_hash: Mapped[str | None] = mapped_column(String, nullable=True)
     role: Mapped[UserRole] = mapped_column(Enum(UserRole, name="user_role_enum", create_type=False), nullable=False)
+    account_type: Mapped[AccountType] = mapped_column(Enum(AccountType, name="account_type_enum", create_type=False), nullable=False, server_default="FULL")
     
     full_name: Mapped[str] = mapped_column(String, nullable=False)
     date_of_birth: Mapped[date | None] = mapped_column(Date, nullable=True)
