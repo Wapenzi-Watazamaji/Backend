@@ -47,7 +47,7 @@ class FormTemplate(Base):
     fields: Mapped[dict] = mapped_column(JSON, nullable=False)
     version: Mapped[str] = mapped_column(String, nullable=False, default="v1")
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
-    facility_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    facility_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("facilities.id", ondelete="CASCADE"), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
@@ -59,7 +59,7 @@ class FormSubmission(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     template_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("form_templates.id"), nullable=False, index=True)
-    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     context: Mapped[FormContext] = mapped_column(Enum(FormContext, name="form_context_enum", create_type=False), nullable=False)
     answers: Mapped[dict] = mapped_column(JSON, nullable=False)
     client_generated_id: Mapped[str | None] = mapped_column(String, nullable=True, unique=True)
@@ -76,7 +76,7 @@ class CycleEntry(Base):
     __tablename__ = "cycle_entries"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     submission_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("form_submissions.id", ondelete="CASCADE"), nullable=False, unique=True)
     start_date: Mapped[date] = mapped_column(Date, nullable=False)
     end_date: Mapped[date | None] = mapped_column(Date, nullable=True)
@@ -108,7 +108,7 @@ class HmbStatus(Base):
     __tablename__ = "hmb_statuses"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, unique=True, index=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True, index=True)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     triggered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     reasons: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
