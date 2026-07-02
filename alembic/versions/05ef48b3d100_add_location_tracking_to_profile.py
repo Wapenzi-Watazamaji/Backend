@@ -24,7 +24,7 @@ def upgrade() -> None:
     op.add_column('profiles', sa.Column('home_address_name', sa.String(), nullable=True))
     op.add_column('profiles', sa.Column('home_location_lat', sa.String(), nullable=True))
     op.add_column('profiles', sa.Column('home_location_lng', sa.String(), nullable=True))
-    op.add_column('profiles', sa.Column('live_location_sharing_enabled', sa.Boolean(), nullable=False))
+    op.add_column('profiles', sa.Column('live_location_sharing_enabled', sa.Boolean(), server_default=sa.text('false'), nullable=False))
     # ### end Alembic commands ###
 
 

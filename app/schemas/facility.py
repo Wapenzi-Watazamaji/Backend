@@ -26,6 +26,10 @@ class FacilityRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class FacilityWithDistance(FacilityRead):
+    distance_km: float
+
+
 class FacilityCreate(BaseModel):
     name: str
     type: FacilityType
@@ -88,6 +92,12 @@ class AddStaffRequest(BaseModel):
     phone_number: str
     role: StaffRole
     specialty: Optional[str] = None
+
+
+class UpdateStaffRequest(BaseModel):
+    role: Optional[StaffRole] = None
+    specialty: Optional[str] = None
+    status: Optional[StaffStatus] = None
 
 
 class FacilityRegisterResponse(BaseModel):

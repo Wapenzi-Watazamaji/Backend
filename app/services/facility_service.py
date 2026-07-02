@@ -9,7 +9,7 @@ from app.repositories import facility_repository, user_repository
 from app.schemas.facility import (
     FacilityCreate, FacilityUpdate, FacilityRead,
     FacilityRegisterRequest, FacilityRegisterResponse, StaffMembership, AddStaffRequest,
-    StaffMemberRead
+    StaffMemberRead, FacilityWithDistance, UpdateStaffRequest
 )
 from app.core.security import get_password_hash, create_access_token, create_refresh_token
 from app.utils.exceptions import ValidationError, PhoneAlreadyRegisteredError, NotFoundError, ForbiddenError
@@ -150,3 +150,66 @@ async def get_facility_staff(db: AsyncSession, facility_id: uuid.UUID) -> list[S
     
     staff_list = await staff_repository.get_by_facility(db, facility_id)
     return [StaffMemberRead.model_validate(s) for s in staff_list]
+
+
+async def get_staff_member(db: AsyncSession, facility_id: uuid.UUID, staff_id: uuid.UUID) -> StaffMemberRead:
+    from app.repositories import staff_repository
+    staff = await staff_repository.get_by_id(db, staff_id)
+    if not staff or staff.facility_id != facility_id:
+        raise NotFoundError(message="Staff member not found in this facility")
+    return StaffMemberRead.model_validate(staff)
+
+
+async def update_staff_member(db: AsyncSession, facility_id: uuid.UUID, staff_id: uuid.UUID, req: UpdateStaffRequest) -> StaffMemberRead:
+    from app.repositories import staff_repository
+    staff = await staff_repository.get_by_id(db, staff_id)
+    if not staff or staff.facility_id != facility_id:
+        raise NotFoundError(message="Staff member not found in this facility")
+    
+    update_data = req.model_dump(exclude_unset=True)
+    updated_staff = await staff_repository.update(db, staff, update_data)
+    return StaffMemberRead.model_validate(updated_staff)
+
+
+async def get_nearby_facilities(db: AsyncSession, lat: float, lng: float, radius_km: float = 50.0, limit: int = 20) -> list[FacilityWithDistance]:
+    from sqlalchemy import select, func, literal_column
+    from app.models.facility import Facility
+
+    # Haversine formula for distance in km:
+    # 6371 * acos(cos(radians(lat1)) * cos(radians(lat2)) * cos(radians(lon2) - radians(lon1)) + sin(radians(lat1)) * sin(radians(lat2)))
+    distance_expr = (
+        6371 * func.acos(
+            func.cos(func.radians(lat)) * func.cos(func.radians(Facility.latitude)) *
+            func.cos(func.radians(Facility.longitude) - func.radians(lng)) +
+            func.sin(func.radians(lat)) * func.sin(func.radians(Facility.latitude))
+        )
+    ).label("distance_km")
+
+    stmt = (
+        select(Facility, distance_expr)
+        .where(
+            Facility.latitude.isnot(None), 
+            Facility.longitude.isnot(None), 
+            Facility.is_active == True,
+            (
+                6371 * func.acos(
+                    func.cos(func.radians(lat)) * func.cos(func.radians(Facility.latitude)) *
+                    func.cos(func.radians(Facility.longitude) - func.radians(lng)) +
+                    func.sin(func.radians(lat)) * func.sin(func.radians(Facility.latitude))
+                )
+            ) <= radius_km
+        )
+        .order_by(distance_expr)
+        .limit(limit)
+    )
+
+    result = await db.execute(stmt)
+    rows = result.all()
+    
+    nearby_facilities = []
+    for facility, distance_km in rows:
+        facility_dict = FacilityRead.model_validate(facility).model_dump()
+        facility_dict["distance_km"] = distance_km
+        nearby_facilities.append(FacilityWithDistance(**facility_dict))
+        
+    return nearby_facilities
