@@ -18,6 +18,24 @@ async def app_exception_handler(request: Request, exc: BaseAppException):
         content=exc.to_response_dict()
     )
 
+from sqlalchemy.exc import IntegrityError
+from fastapi import status
+
+@app.exception_handler(IntegrityError)
+async def sqlalchemy_integrity_error_handler(request: Request, exc: IntegrityError):
+    return JSONResponse(
+        status_code=status.HTTP_409_CONFLICT,
+        content={
+            "success": False,
+            "data": None,
+            "meta": None,
+            "error": {
+                "code": "CONFLICT",
+                "message": "A record with these unique constraints already exists."
+            }
+        }
+    )
+
 @app.get("/health", tags=["Health"])
 def health():
     return {"status": "ok", "project": settings.PROJECT_NAME}
