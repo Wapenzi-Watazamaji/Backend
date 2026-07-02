@@ -9,8 +9,9 @@ from app.repositories import facility_repository, user_repository
 from app.schemas.facility import (
     FacilityCreate, FacilityUpdate, FacilityRead,
     FacilityRegisterRequest, FacilityRegisterResponse, StaffMembership, AddStaffRequest,
-    StaffMemberRead, FacilityWithDistance, UpdateStaffRequest, BulkAssignRequest
+    StaffMemberRead, FacilityWithDistance, UpdateStaffRequest, BulkAssignRequest, FacilityStats
 )
+from app.schemas.profile import ProfileRead
 from app.core.security import get_password_hash, create_access_token, create_refresh_token
 from app.utils.exceptions import ValidationError, PhoneAlreadyRegisteredError, NotFoundError, ForbiddenError
 
@@ -257,3 +258,71 @@ async def bulk_assign_patients(db: AsyncSession, facility_id: uuid.UUID, staff_i
     await db.refresh(staff)
     
     return StaffMemberRead.model_validate(staff)
+
+
+async def get_staff_patients(db: AsyncSession, facility_id: uuid.UUID, staff_id: uuid.UUID) -> list[ProfileRead]:
+    from app.repositories import staff_repository
+    from app.models.profile import Profile
+    from sqlalchemy import select
+    
+    # Verify staff exists and is in the facility
+    staff = await staff_repository.get_by_id(db, staff_id)
+    if not staff or staff.facility_id != facility_id:
+        raise NotFoundError(message="Staff member not found in this facility")
+        
+    stmt = select(Profile).where(Profile.personal_doctor_id == staff_id)
+    result = await db.execute(stmt)
+    profiles = result.scalars().all()
+    
+    return [ProfileRead.from_orm_with_contact(p) for p in profiles]
+
+
+async def get_my_patients(db: AsyncSession, facility_id: uuid.UUID, user_id: uuid.UUID) -> list[ProfileRead]:
+    from app.repositories import staff_repository
+    from app.models.profile import Profile
+    from sqlalchemy import select
+    
+    staff = await staff_repository.get_by_user_and_facility(db, user_id, facility_id)
+    if not staff:
+        raise NotFoundError(message="Staff member record not found for the current user in this facility")
+        
+    stmt = select(Profile).where(Profile.personal_doctor_id == staff.id)
+    result = await db.execute(stmt)
+    profiles = result.scalars().all()
+    
+    return [ProfileRead.from_orm_with_contact(p) for p in profiles]
+
+
+async def get_facility_stats(db: AsyncSession, facility_id: uuid.UUID) -> FacilityStats:
+    from app.models.staff import StaffMember
+    from app.models.emergency import EmergencyRequest, EmergencyStatus
+    from sqlalchemy import select, func
+    
+    # Total staff
+    stmt_staff = select(func.count(StaffMember.id)).where(StaffMember.facility_id == facility_id)
+    total_staff = await db.scalar(stmt_staff) or 0
+    
+    # Staff on duty
+    stmt_on_duty = select(func.count(StaffMember.id)).where(
+        StaffMember.facility_id == facility_id, 
+        StaffMember.is_on_duty == True
+    )
+    staff_on_duty = await db.scalar(stmt_on_duty) or 0
+    
+    # Total assigned patients
+    stmt_patients = select(func.sum(StaffMember.assigned_patient_count)).where(StaffMember.facility_id == facility_id)
+    total_assigned_patients = await db.scalar(stmt_patients) or 0
+    
+    # Pending emergencies
+    stmt_emergencies = select(func.count(EmergencyRequest.id)).where(
+        EmergencyRequest.facility_id == facility_id,
+        EmergencyRequest.status == EmergencyStatus.PENDING
+    )
+    pending_emergencies = await db.scalar(stmt_emergencies) or 0
+    
+    return FacilityStats(
+        total_staff=total_staff,
+        staff_on_duty=staff_on_duty,
+        total_assigned_patients=total_assigned_patients,
+        pending_emergencies=pending_emergencies
+    )

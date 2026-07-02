@@ -75,6 +75,7 @@ class StaffMemberRead(BaseModel):
     specialty: Optional[str] = None
     assigned_patient_count: int
     status: StaffStatus
+    is_on_duty: bool
     invited_at: datetime
     joined_at: Optional[datetime] = None
 
@@ -98,6 +99,7 @@ class UpdateStaffRequest(BaseModel):
     role: Optional[StaffRole] = None
     specialty: Optional[str] = None
     status: Optional[StaffStatus] = None
+    is_on_duty: Optional[bool] = None
 
 
 class BulkAssignRequest(BaseModel):
@@ -110,3 +112,10 @@ class FacilityRegisterResponse(BaseModel):
     access_token: str
     refresh_token: str
     token_type: str = "bearer"
+
+
+class FacilityStats(BaseModel):
+    total_staff: int
+    staff_on_duty: int
+    total_assigned_patients: int
+    pending_emergencies: int
