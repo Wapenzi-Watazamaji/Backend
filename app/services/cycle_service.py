@@ -6,7 +6,7 @@ from collections import Counter, defaultdict
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.cycle import FormTemplate, FormContext, HmbAcknowledgeAction
-from app.repositories import cycle_repository
+from app.repositories import cycle_repository, profile_repository
 from app.schemas.cycle import PredictionRead, TrendRead, CycleLengthMonth, TrendInsight, TopSymptom
 from app.utils.exceptions import NotFoundError, TemplateValidationError
 
@@ -230,7 +230,7 @@ async def list_symptoms(db: AsyncSession, user_id: uuid.UUID, from_date, to_date
 async def get_predictions(db: AsyncSession, user_id: uuid.UUID) -> PredictionRead:
     entries = await cycle_repository.get_cycle_entries_for_predictions(db, user_id, limit=12)
 
-    if len(entries) < 2:
+    if len(entries) == 0:
         return PredictionRead(
             nextPeriodPredictedDate=None,
             ovulationWindowStart=None,
@@ -247,15 +247,12 @@ async def get_predictions(db: AsyncSession, user_id: uuid.UUID) -> PredictionRea
             cycle_lengths.append(delta)
 
     if not cycle_lengths:
-        return PredictionRead(
-            nextPeriodPredictedDate=None,
-            ovulationWindowStart=None,
-            ovulationWindowEnd=None,
-            averageCycleLengthDays=None,
-            currentCycleDay=None,
-        )
+        # Fallback for 1 entry or no valid lengths
+        profile = await profile_repository.get_by_user_id(db, user_id)
+        avg_cycle = profile.typical_cycle_length_days if profile and profile.typical_cycle_length_days else 28
+    else:
+        avg_cycle = round(sum(cycle_lengths) / len(cycle_lengths))
 
-    avg_cycle = round(sum(cycle_lengths) / len(cycle_lengths))
     last_start = sorted_entries[-1].start_date
     next_period = last_start + timedelta(days=avg_cycle)
     ovulation_end = next_period - timedelta(days=14)

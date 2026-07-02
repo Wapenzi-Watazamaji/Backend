@@ -6,6 +6,20 @@ from pydantic import BaseModel, ConfigDict
 from app.models.cycle import FormContext, PbacItemType, PbacSoakLevel, HmbAcknowledgeAction
 
 
+class FormTemplateCreate(BaseModel):
+    slug: str
+    context: FormContext
+    fields: dict[str, Any]
+    version: str = "v1"
+    is_active: bool = True
+
+class FormTemplateUpdate(BaseModel):
+    slug: Optional[str] = None
+    context: Optional[FormContext] = None
+    fields: Optional[dict[str, Any]] = None
+    version: Optional[str] = None
+    is_active: Optional[bool] = None
+
 class FormTemplateRead(BaseModel):
     id: uuid.UUID
     slug: str

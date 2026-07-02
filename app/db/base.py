@@ -6,8 +6,11 @@ from app.core.config import settings
 # Create the asynchronous engine
 engine = create_async_engine(
     settings.DATABASE_URL,
-    echo=False,  # Set to True for SQL query logging
-    connect_args={"ssl": "require"},
+    echo=False,
+    connect_args={
+        "ssl": "require",
+        "statement_cache_size": 0,
+    },
     pool_pre_ping=True,
     pool_recycle=300
 )

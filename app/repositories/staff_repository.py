@@ -41,3 +41,11 @@ async def get_by_facility(
     stmt = select(StaffMember).where(StaffMember.facility_id == facility_id)
     result = await db.execute(stmt)
     return list(result.scalars().all())
+
+
+async def create(db: AsyncSession, data: dict) -> StaffMember:
+    staff = StaffMember(**data)
+    db.add(staff)
+    await db.flush()
+    await db.refresh(staff)
+    return staff

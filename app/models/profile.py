@@ -3,9 +3,9 @@ from typing import TYPE_CHECKING
 from datetime import datetime
 from enum import Enum as PyEnum
 
-from sqlalchemy import String, DateTime, ForeignKey, func, Enum, JSON
+from sqlalchemy import String, DateTime, ForeignKey, func, Enum, Integer
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, ARRAY
 
 from app.db.base import Base
 
@@ -45,7 +45,7 @@ class Profile(Base):
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), unique=True, index=True, nullable=False)
     
     current_stage: Mapped[CurrentStage | None] = mapped_column(Enum(CurrentStage, name="current_stage_enum", create_type=False), nullable=True)
-    preferred_unit_ids: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    preferred_facility_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("facilities.id", ondelete="SET NULL"), nullable=True)
     
     emergency_sharing_preference: Mapped[SharingPreference | None] = mapped_column(Enum(SharingPreference, name="sharing_pref_enum", create_type=False), nullable=True)
     notification_preference: Mapped[NotificationPreference | None] = mapped_column(Enum(NotificationPreference, name="notification_pref_enum", create_type=False), nullable=True)
@@ -55,6 +55,8 @@ class Profile(Base):
     emergency_contact_phone: Mapped[str | None] = mapped_column(String, nullable=True)
 
     companion_preference: Mapped[CompanionPreference | None] = mapped_column(Enum(CompanionPreference, name="companion_pref_enum", create_type=False), nullable=True)
+
+    typical_cycle_length_days: Mapped[int | None] = mapped_column(Integer, nullable=True, default=28)
 
     personal_doctor_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
     personal_doctor_request_status: Mapped[DoctorRequestStatus | None] = mapped_column(Enum(DoctorRequestStatus, name="doctor_req_status_enum", create_type=False), nullable=True)

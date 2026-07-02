@@ -11,13 +11,23 @@ from app.models.cycle import (
 )
 
 
-async def get_active_form_template(db: AsyncSession, context: FormContext, slug: Optional[str] = None) -> FormTemplate | None:
+async def get_active_form_template(db: AsyncSession, context: FormContext, slug: Optional[str] = None, facility_id: Optional[uuid.UUID] = None) -> FormTemplate | None:
     stmt = select(FormTemplate).where(
         and_(FormTemplate.context == context, FormTemplate.is_active == True)
     )
     if slug:
         stmt = stmt.where(FormTemplate.slug == slug)
-    stmt = stmt.order_by(FormTemplate.created_at.desc())
+        
+    if facility_id:
+        # Try to find a facility-specific template first
+        facility_stmt = stmt.where(FormTemplate.facility_id == facility_id).order_by(FormTemplate.created_at.desc())
+        result = await db.execute(facility_stmt)
+        template = result.scalars().first()
+        if template:
+            return template
+            
+    # Fallback to global template (facility_id is NULL)
+    stmt = stmt.where(FormTemplate.facility_id.is_(None)).order_by(FormTemplate.created_at.desc())
     result = await db.execute(stmt)
     return result.scalars().first()
 
@@ -26,6 +36,28 @@ async def get_form_template_by_slug(db: AsyncSession, slug: str) -> FormTemplate
     stmt = select(FormTemplate).where(FormTemplate.slug == slug)
     result = await db.execute(stmt)
     return result.scalars().first()
+
+
+async def get_form_template_by_id(db: AsyncSession, template_id: uuid.UUID) -> FormTemplate | None:
+    stmt = select(FormTemplate).where(FormTemplate.id == template_id)
+    result = await db.execute(stmt)
+    return result.scalars().first()
+
+
+async def create_form_template(db: AsyncSession, data: dict) -> FormTemplate:
+    obj = FormTemplate(**data)
+    db.add(obj)
+    await db.flush()
+    await db.refresh(obj)
+    return obj
+
+
+async def update_form_template(db: AsyncSession, template: FormTemplate, data: dict) -> FormTemplate:
+    for key, value in data.items():
+        setattr(template, key, value)
+    await db.flush()
+    await db.refresh(template)
+    return template
 
 
 async def create_submission(db: AsyncSession, data: dict) -> FormSubmission:
