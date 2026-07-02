@@ -21,6 +21,7 @@ class ProfileRead(BaseModel):
     notification_preference: Optional[NotificationPreference] = None
     emergency_contact: Optional[EmergencyContact] = None
     companion_preference: Optional[CompanionPreference] = None
+    typical_cycle_length_days: Optional[int] = 28
     personal_doctor_id: Optional[uuid.UUID] = None
     personal_doctor_request_status: Optional[DoctorRequestStatus] = None
     qr_passport_token: Optional[str] = None
@@ -44,6 +45,7 @@ class ProfileRead(BaseModel):
                 phone=profile.emergency_contact_phone,
             ) if profile.emergency_contact_name else None,
             companion_preference=profile.companion_preference,
+            typical_cycle_length_days=profile.typical_cycle_length_days,
             personal_doctor_id=profile.personal_doctor_id,
             personal_doctor_request_status=profile.personal_doctor_request_status,
             qr_passport_token=profile.qr_passport_token,
@@ -58,6 +60,7 @@ class ProfileUpdate(BaseModel):
     notification_preference: Optional[NotificationPreference] = None
     emergency_contact: Optional[EmergencyContact] = None
     companion_preference: Optional[CompanionPreference] = None
+    typical_cycle_length_days: Optional[int] = None
     preferred_facility_id: Optional[uuid.UUID] = None
 
 
@@ -67,6 +70,7 @@ class ProfileCreate(BaseModel):
     notification_preference: Optional[NotificationPreference] = None
     emergency_contact: Optional[EmergencyContact] = None
     companion_preference: Optional[CompanionPreference] = None
+    typical_cycle_length_days: Optional[int] = None
     preferred_facility_id: Optional[uuid.UUID] = None
 
 

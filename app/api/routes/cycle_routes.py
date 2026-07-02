@@ -211,7 +211,7 @@ async def get_cycle_trends(
     db: AsyncSession = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_user),
 ):
-    trend_data = await cycle_service.get_cycle_trends(db, current_user.id, months)
+    trend_data = await cycle_service.get_trends(db, current_user.id, months)
     return create_success_response(data=trend_data)
 
 
