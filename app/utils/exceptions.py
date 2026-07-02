@@ -122,6 +122,10 @@ class PhoneAlreadyRegisteredError(BaseAppException):
     def __init__(self, message: str, fields: Optional[Dict[str, str]] = None, meta: Optional[Dict[str, Any]] = None):
         super().__init__(status_code=409, code="PHONE_ALREADY_REGISTERED", message=message, fields=fields, meta=meta)
 
+class ActivePregnancyExistsError(BaseAppException):
+    def __init__(self, message: str, meta: Optional[Dict[str, Any]] = None):
+        super().__init__(status_code=409, code="ACTIVE_PREGNANCY_EXISTS", message=message, meta=meta)
+
 #410 Gone
 
 class QrTokenExpiredError(BaseAppException):
