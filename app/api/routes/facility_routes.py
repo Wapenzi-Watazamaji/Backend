@@ -7,7 +7,7 @@ from app.models.user import User
 from app.schemas.facility import (
     FacilityRegisterRequest, FacilityRegisterResponse,
     FacilityRead, FacilityUpdate, StaffMemberRead, AddStaffRequest,
-    FacilityWithDistance, UpdateStaffRequest
+    FacilityWithDistance, UpdateStaffRequest, BulkAssignRequest
 )
 from app.services import facility_service
 from app.utils.exceptions import APIResponse, create_success_response
@@ -100,3 +100,15 @@ async def update_staff_member(
 ):
     staff = await facility_service.update_staff_member(db, requester_facility_id, staff_id, req)
     return create_success_response(message="Staff member updated successfully", data=staff)
+
+
+@router.post("/staff/{staff_id}/assign-patients", response_model=APIResponse[StaffMemberRead])
+async def bulk_assign_patients(
+    staff_id: uuid.UUID,
+    req: BulkAssignRequest,
+    requester_facility_id: uuid.UUID = Depends(get_facility_context),
+    current_user: User = Depends(require_facility_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    staff = await facility_service.bulk_assign_patients(db, requester_facility_id, staff_id, req)
+    return create_success_response(message="Patients assigned successfully", data=staff)

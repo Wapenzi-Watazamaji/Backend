@@ -100,6 +100,10 @@ class UpdateStaffRequest(BaseModel):
     status: Optional[StaffStatus] = None
 
 
+class BulkAssignRequest(BaseModel):
+    patient_profile_ids: list[uuid.UUID]
+
+
 class FacilityRegisterResponse(BaseModel):
     facility: FacilityRead
     admin_user_id: uuid.UUID

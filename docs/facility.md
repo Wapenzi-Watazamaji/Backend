@@ -266,6 +266,30 @@ Update details for a specific staff member (e.g. changing their role or suspendi
 
 ---
 
+## POST `/staff/{staff_id}/assign-patients`
+
+Bulk assign an array of patient profiles to a specific clinician/staff member. This automatically decrements the patients from their previous doctors (if any), assigns them to the new doctor, and updates the new doctor's `assigned_patient_count` in real-time.
+
+**Authentication:** 
+- 🔒 `Authorization: Bearer <access_token>`
+- 🔑 Required Role: `FACILITY_ADMIN`
+- 🏢 Header: `X-Facility-Context: <facility_id>`
+
+**Request Body**
+```json
+{
+  "patient_profile_ids": [
+    "uuid-1",
+    "uuid-2",
+    "uuid-3"
+  ]
+}
+```
+
+**Response `200 OK`** — The updated Staff object for the target clinician, reflecting their new `assigned_patient_count` load.
+
+---
+
 ## Note on Staff Logins
 
 When a user with role `CLINICIAN` or `FACILITY_ADMIN` logs in via `POST /api/v1/auth/login`, the response token now includes their active `staff_memberships`:

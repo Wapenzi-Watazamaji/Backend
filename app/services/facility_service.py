@@ -9,7 +9,7 @@ from app.repositories import facility_repository, user_repository
 from app.schemas.facility import (
     FacilityCreate, FacilityUpdate, FacilityRead,
     FacilityRegisterRequest, FacilityRegisterResponse, StaffMembership, AddStaffRequest,
-    StaffMemberRead, FacilityWithDistance, UpdateStaffRequest
+    StaffMemberRead, FacilityWithDistance, UpdateStaffRequest, BulkAssignRequest
 )
 from app.core.security import get_password_hash, create_access_token, create_refresh_token
 from app.utils.exceptions import ValidationError, PhoneAlreadyRegisteredError, NotFoundError, ForbiddenError
@@ -213,3 +213,47 @@ async def get_nearby_facilities(db: AsyncSession, lat: float, lng: float, radius
         nearby_facilities.append(FacilityWithDistance(**facility_dict))
         
     return nearby_facilities
+
+
+async def bulk_assign_patients(db: AsyncSession, facility_id: uuid.UUID, staff_id: uuid.UUID, req: BulkAssignRequest) -> StaffMemberRead:
+    from app.repositories import staff_repository
+    from app.models.profile import Profile, DoctorRequestStatus
+    from sqlalchemy import select
+    from collections import Counter
+    
+    # Verify staff exists and is in the facility
+    staff = await staff_repository.get_by_id(db, staff_id)
+    if not staff or staff.facility_id != facility_id:
+        raise NotFoundError(message="Staff member not found in this facility")
+        
+    # Find all profiles
+    stmt = select(Profile).where(Profile.id.in_(req.patient_profile_ids))
+    result = await db.execute(stmt)
+    profiles = result.scalars().all()
+    
+    # Identify previous doctors to decrement their counts
+    old_doctor_ids = [p.personal_doctor_id for p in profiles if p.personal_doctor_id is not None and p.personal_doctor_id != staff_id]
+    old_doc_counts = Counter(old_doctor_ids)
+    for old_doc_id, count in old_doc_counts.items():
+        old_staff = await staff_repository.get_by_id(db, old_doc_id)
+        if old_staff:
+            old_staff.assigned_patient_count = max(0, old_staff.assigned_patient_count - count)
+            db.add(old_staff)
+            
+    # Update the profiles
+    new_assignments_count = 0
+    for profile in profiles:
+        if profile.personal_doctor_id != staff_id:
+            profile.personal_doctor_id = staff_id
+            profile.personal_doctor_request_status = DoctorRequestStatus.ASSIGNED
+            new_assignments_count += 1
+            db.add(profile)
+            
+    # Update the new staff member's count
+    staff.assigned_patient_count += new_assignments_count
+    db.add(staff)
+    
+    await db.commit()
+    await db.refresh(staff)
+    
+    return StaffMemberRead.model_validate(staff)
