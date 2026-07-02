@@ -9,8 +9,9 @@ from app.repositories import facility_repository, user_repository
 from app.schemas.facility import (
     FacilityCreate, FacilityUpdate, FacilityRead,
     FacilityRegisterRequest, FacilityRegisterResponse, StaffMembership, AddStaffRequest,
-    StaffMemberRead
+    StaffMemberRead, FacilityWithDistance, UpdateStaffRequest, BulkAssignRequest, FacilityStats
 )
+from app.schemas.profile import ProfileRead
 from app.core.security import get_password_hash, create_access_token, create_refresh_token
 from app.utils.exceptions import ValidationError, PhoneAlreadyRegisteredError, NotFoundError, ForbiddenError
 
@@ -150,3 +151,178 @@ async def get_facility_staff(db: AsyncSession, facility_id: uuid.UUID) -> list[S
     
     staff_list = await staff_repository.get_by_facility(db, facility_id)
     return [StaffMemberRead.model_validate(s) for s in staff_list]
+
+
+async def get_staff_member(db: AsyncSession, facility_id: uuid.UUID, staff_id: uuid.UUID) -> StaffMemberRead:
+    from app.repositories import staff_repository
+    staff = await staff_repository.get_by_id(db, staff_id)
+    if not staff or staff.facility_id != facility_id:
+        raise NotFoundError(message="Staff member not found in this facility")
+    return StaffMemberRead.model_validate(staff)
+
+
+async def update_staff_member(db: AsyncSession, facility_id: uuid.UUID, staff_id: uuid.UUID, req: UpdateStaffRequest) -> StaffMemberRead:
+    from app.repositories import staff_repository
+    staff = await staff_repository.get_by_id(db, staff_id)
+    if not staff or staff.facility_id != facility_id:
+        raise NotFoundError(message="Staff member not found in this facility")
+    
+    update_data = req.model_dump(exclude_unset=True)
+    updated_staff = await staff_repository.update(db, staff, update_data)
+    return StaffMemberRead.model_validate(updated_staff)
+
+
+async def get_nearby_facilities(db: AsyncSession, lat: float, lng: float, radius_km: float = 50.0, limit: int = 20) -> list[FacilityWithDistance]:
+    from sqlalchemy import select, func, literal_column
+    from app.models.facility import Facility
+
+    # Haversine formula for distance in km:
+    # 6371 * acos(cos(radians(lat1)) * cos(radians(lat2)) * cos(radians(lon2) - radians(lon1)) + sin(radians(lat1)) * sin(radians(lat2)))
+    distance_expr = (
+        6371 * func.acos(
+            func.cos(func.radians(lat)) * func.cos(func.radians(Facility.latitude)) *
+            func.cos(func.radians(Facility.longitude) - func.radians(lng)) +
+            func.sin(func.radians(lat)) * func.sin(func.radians(Facility.latitude))
+        )
+    ).label("distance_km")
+
+    stmt = (
+        select(Facility, distance_expr)
+        .where(
+            Facility.latitude.isnot(None), 
+            Facility.longitude.isnot(None), 
+            Facility.is_active == True,
+            (
+                6371 * func.acos(
+                    func.cos(func.radians(lat)) * func.cos(func.radians(Facility.latitude)) *
+                    func.cos(func.radians(Facility.longitude) - func.radians(lng)) +
+                    func.sin(func.radians(lat)) * func.sin(func.radians(Facility.latitude))
+                )
+            ) <= radius_km
+        )
+        .order_by(distance_expr)
+        .limit(limit)
+    )
+
+    result = await db.execute(stmt)
+    rows = result.all()
+    
+    nearby_facilities = []
+    for facility, distance_km in rows:
+        facility_dict = FacilityRead.model_validate(facility).model_dump()
+        facility_dict["distance_km"] = distance_km
+        nearby_facilities.append(FacilityWithDistance(**facility_dict))
+        
+    return nearby_facilities
+
+
+async def bulk_assign_patients(db: AsyncSession, facility_id: uuid.UUID, staff_id: uuid.UUID, req: BulkAssignRequest) -> StaffMemberRead:
+    from app.repositories import staff_repository
+    from app.models.profile import Profile, DoctorRequestStatus
+    from sqlalchemy import select
+    from collections import Counter
+    
+    # Verify staff exists and is in the facility
+    staff = await staff_repository.get_by_id(db, staff_id)
+    if not staff or staff.facility_id != facility_id:
+        raise NotFoundError(message="Staff member not found in this facility")
+        
+    # Find all profiles
+    stmt = select(Profile).where(Profile.id.in_(req.patient_profile_ids))
+    result = await db.execute(stmt)
+    profiles = result.scalars().all()
+    
+    # Identify previous doctors to decrement their counts
+    old_doctor_ids = [p.personal_doctor_id for p in profiles if p.personal_doctor_id is not None and p.personal_doctor_id != staff_id]
+    old_doc_counts = Counter(old_doctor_ids)
+    for old_doc_id, count in old_doc_counts.items():
+        old_staff = await staff_repository.get_by_id(db, old_doc_id)
+        if old_staff:
+            old_staff.assigned_patient_count = max(0, old_staff.assigned_patient_count - count)
+            db.add(old_staff)
+            
+    # Update the profiles
+    new_assignments_count = 0
+    for profile in profiles:
+        if profile.personal_doctor_id != staff_id:
+            profile.personal_doctor_id = staff_id
+            profile.personal_doctor_request_status = DoctorRequestStatus.ASSIGNED
+            new_assignments_count += 1
+            db.add(profile)
+            
+    # Update the new staff member's count
+    staff.assigned_patient_count += new_assignments_count
+    db.add(staff)
+    
+    await db.commit()
+    await db.refresh(staff)
+    
+    return StaffMemberRead.model_validate(staff)
+
+
+async def get_staff_patients(db: AsyncSession, facility_id: uuid.UUID, staff_id: uuid.UUID) -> list[ProfileRead]:
+    from app.repositories import staff_repository
+    from app.models.profile import Profile
+    from sqlalchemy import select
+    
+    # Verify staff exists and is in the facility
+    staff = await staff_repository.get_by_id(db, staff_id)
+    if not staff or staff.facility_id != facility_id:
+        raise NotFoundError(message="Staff member not found in this facility")
+        
+    stmt = select(Profile).where(Profile.personal_doctor_id == staff_id)
+    result = await db.execute(stmt)
+    profiles = result.scalars().all()
+    
+    return [ProfileRead.from_orm_with_contact(p) for p in profiles]
+
+
+async def get_my_patients(db: AsyncSession, facility_id: uuid.UUID, user_id: uuid.UUID) -> list[ProfileRead]:
+    from app.repositories import staff_repository
+    from app.models.profile import Profile
+    from sqlalchemy import select
+    
+    staff = await staff_repository.get_by_user_and_facility(db, user_id, facility_id)
+    if not staff:
+        raise NotFoundError(message="Staff member record not found for the current user in this facility")
+        
+    stmt = select(Profile).where(Profile.personal_doctor_id == staff.id)
+    result = await db.execute(stmt)
+    profiles = result.scalars().all()
+    
+    return [ProfileRead.from_orm_with_contact(p) for p in profiles]
+
+
+async def get_facility_stats(db: AsyncSession, facility_id: uuid.UUID) -> FacilityStats:
+    from app.models.staff import StaffMember
+    from app.models.emergency import EmergencyRequest, EmergencyStatus
+    from sqlalchemy import select, func
+    
+    # Total staff
+    stmt_staff = select(func.count(StaffMember.id)).where(StaffMember.facility_id == facility_id)
+    total_staff = await db.scalar(stmt_staff) or 0
+    
+    # Staff on duty
+    stmt_on_duty = select(func.count(StaffMember.id)).where(
+        StaffMember.facility_id == facility_id, 
+        StaffMember.is_on_duty == True
+    )
+    staff_on_duty = await db.scalar(stmt_on_duty) or 0
+    
+    # Total assigned patients
+    stmt_patients = select(func.sum(StaffMember.assigned_patient_count)).where(StaffMember.facility_id == facility_id)
+    total_assigned_patients = await db.scalar(stmt_patients) or 0
+    
+    # Pending emergencies
+    stmt_emergencies = select(func.count(EmergencyRequest.id)).where(
+        EmergencyRequest.facility_id == facility_id,
+        EmergencyRequest.status == EmergencyStatus.PENDING
+    )
+    pending_emergencies = await db.scalar(stmt_emergencies) or 0
+    
+    return FacilityStats(
+        total_staff=total_staff,
+        staff_on_duty=staff_on_duty,
+        total_assigned_patients=total_assigned_patients,
+        pending_emergencies=pending_emergencies
+    )

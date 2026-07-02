@@ -49,3 +49,18 @@ async def create(db: AsyncSession, data: dict) -> StaffMember:
     await db.flush()
     await db.refresh(staff)
     return staff
+
+
+async def get_by_id(db: AsyncSession, staff_id: uuid.UUID) -> StaffMember | None:
+    stmt = select(StaffMember).where(StaffMember.id == staff_id)
+    result = await db.execute(stmt)
+    return result.scalars().first()
+
+
+async def update(db: AsyncSession, staff: StaffMember, update_data: dict) -> StaffMember:
+    for field, value in update_data.items():
+        setattr(staff, field, value)
+    db.add(staff)
+    await db.flush()
+    await db.refresh(staff)
+    return staff

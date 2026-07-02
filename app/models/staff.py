@@ -1,7 +1,7 @@
 import uuid
 import enum
 from datetime import datetime, timezone
-from sqlalchemy import String, Integer, ForeignKey, Enum as SQLEnum, DateTime, func
+from sqlalchemy import String, Integer, ForeignKey, Enum as SQLEnum, DateTime, func, Boolean
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID
 from typing import TYPE_CHECKING
@@ -32,6 +32,7 @@ class StaffMember(Base):
     specialty: Mapped[str | None] = mapped_column(String, nullable=True)
     assigned_patient_count: Mapped[int] = mapped_column(Integer, default=0)
     status: Mapped[StaffStatus] = mapped_column(SQLEnum(StaffStatus, name="staff_status_enum", create_type=False), nullable=False, default=StaffStatus.INVITE_PENDING)
+    is_on_duty: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
     
     invited_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now(), nullable=False)
     joined_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

@@ -65,3 +65,23 @@ async def request_personal_doctor(
 ):
     profile = await profile_service.request_personal_doctor(db, current_user, body.facility_id)
     return create_success_response(message="Personal doctor request submitted successfully", data=profile)
+
+from app.services import consent_service
+from app.schemas.consent import ConsentRead
+
+@router.get("/me/consents", response_model=APIResponse[list[ConsentRead]])
+async def get_my_consents(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    consents = await consent_service.get_my_consents(db, current_user.id)
+    return create_success_response(message="Consents fetched successfully", data=consents)
+
+@router.put("/me/consents/{grantee_id}/revoke", response_model=APIResponse[ConsentRead])
+async def revoke_consent(
+    grantee_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    consent = await consent_service.revoke_consent(db, current_user.id, grantee_id)
+    return create_success_response(message="Consent revoked successfully", data=consent)

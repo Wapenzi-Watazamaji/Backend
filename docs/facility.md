@@ -70,6 +70,51 @@ This is an atomic operation that:
 
 ---
 
+## GET `/nearby`
+
+Finds all active facilities within a specified radius, calculating straight-line distance using the Haversine formula based on the user's provided coordinates. The results are ordered by distance (closest first).
+
+**Authentication:** 
+- 🔒 `Authorization: Bearer <access_token>`
+
+**Query Parameters**
+| Parameter | Type | Required | Default | Notes |
+|---|---|---|---|---|
+| `lat` | float | ✅ | | Latitude of the patient/user |
+| `lng` | float | ✅ | | Longitude of the patient/user |
+| `radius_km` | float | ❌ | `50.0` | Maximum search radius in kilometers |
+| `limit` | int | ❌ | `20` | Max number of results to return |
+
+**Response `200 OK`**
+```json
+{
+  "success": true,
+  "message": "Nearby facilities fetched successfully",
+  "data": [
+    {
+      "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+      "name": "Nairobi Hospital",
+      "type": "PRIVATE",
+      "county": "Nairobi",
+      "address": "Argwings Kodhek Rd",
+      "phone_number": "+254700000001",
+      "email": "info@nairobihospital.org",
+      "latitude": -1.295,
+      "longitude": 36.805,
+      "status": "VERIFIED",
+      "is_active": true,
+      "services_offered": ["ANTENATAL_CARE", "DELIVERY"],
+      "readiness": {},
+      "updated_at": "2026-07-01T12:00:00Z",
+      "distance_km": 2.45
+    }
+  ],
+  "meta": {}
+}
+```
+
+---
+
 ## GET `/current`
 
 Retrieve the details of the facility currently set in context.
@@ -182,6 +227,66 @@ Get a list of all staff members at the facility.
 - 🏢 Header: `X-Facility-Context: <facility_id>`
 
 **Response `200 OK`** — Array of Staff objects (same shape as POST).
+
+---
+
+## GET `/staff/{staff_id}`
+
+Get details for a specific staff member.
+
+**Authentication:** 
+- 🔒 `Authorization: Bearer <access_token>`
+- 🔑 Required Role: `FACILITY_ADMIN`
+- 🏢 Header: `X-Facility-Context: <facility_id>`
+
+**Response `200 OK`** — Staff object (same shape as POST).
+
+---
+
+## PUT `/staff/{staff_id}`
+
+Update details for a specific staff member (e.g. changing their role or suspending them).
+
+**Authentication:** 
+- 🔒 `Authorization: Bearer <access_token>`
+- 🔑 Required Role: `FACILITY_ADMIN`
+- 🏢 Header: `X-Facility-Context: <facility_id>`
+
+**Request Body**
+```json
+{
+  "role": "FACILITY_ADMIN",
+  "specialty": "Pediatrics",
+  "status": "SUSPENDED"
+}
+```
+*Note: All fields are optional. `status` can be `ACTIVE`, `SUSPENDED`, etc. `role` can be `CLINICIAN`, `FACILITY_ADMIN`, etc.*
+
+**Response `200 OK`** — Updated Staff object (same shape as POST).
+
+---
+
+## POST `/staff/{staff_id}/assign-patients`
+
+Bulk assign an array of patient profiles to a specific clinician/staff member. This automatically decrements the patients from their previous doctors (if any), assigns them to the new doctor, and updates the new doctor's `assigned_patient_count` in real-time.
+
+**Authentication:** 
+- 🔒 `Authorization: Bearer <access_token>`
+- 🔑 Required Role: `FACILITY_ADMIN`
+- 🏢 Header: `X-Facility-Context: <facility_id>`
+
+**Request Body**
+```json
+{
+  "patient_profile_ids": [
+    "uuid-1",
+    "uuid-2",
+    "uuid-3"
+  ]
+}
+```
+
+**Response `200 OK`** — The updated Staff object for the target clinician, reflecting their new `assigned_patient_count` load.
 
 ---
 

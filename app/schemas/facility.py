@@ -26,6 +26,10 @@ class FacilityRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class FacilityWithDistance(FacilityRead):
+    distance_km: float
+
+
 class FacilityCreate(BaseModel):
     name: str
     type: FacilityType
@@ -71,6 +75,7 @@ class StaffMemberRead(BaseModel):
     specialty: Optional[str] = None
     assigned_patient_count: int
     status: StaffStatus
+    is_on_duty: bool
     invited_at: datetime
     joined_at: Optional[datetime] = None
 
@@ -90,9 +95,27 @@ class AddStaffRequest(BaseModel):
     specialty: Optional[str] = None
 
 
+class UpdateStaffRequest(BaseModel):
+    role: Optional[StaffRole] = None
+    specialty: Optional[str] = None
+    status: Optional[StaffStatus] = None
+    is_on_duty: Optional[bool] = None
+
+
+class BulkAssignRequest(BaseModel):
+    patient_profile_ids: list[uuid.UUID]
+
+
 class FacilityRegisterResponse(BaseModel):
     facility: FacilityRead
     admin_user_id: uuid.UUID
     access_token: str
     refresh_token: str
     token_type: str = "bearer"
+
+
+class FacilityStats(BaseModel):
+    total_staff: int
+    staff_on_duty: int
+    total_assigned_patients: int
+    pending_emergencies: int
