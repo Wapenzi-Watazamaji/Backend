@@ -21,6 +21,10 @@ class ProfileRead(BaseModel):
     notification_preference: Optional[NotificationPreference] = None
     emergency_contact: Optional[EmergencyContact] = None
     companion_preference: Optional[CompanionPreference] = None
+    home_address_name: Optional[str] = None
+    home_location_lat: Optional[str] = None
+    home_location_lng: Optional[str] = None
+    live_location_sharing_enabled: bool = False
     typical_cycle_length_days: Optional[int] = 28
     personal_doctor_id: Optional[uuid.UUID] = None
     personal_doctor_request_status: Optional[DoctorRequestStatus] = None
@@ -45,6 +49,10 @@ class ProfileRead(BaseModel):
                 phone=profile.emergency_contact_phone,
             ) if profile.emergency_contact_name else None,
             companion_preference=profile.companion_preference,
+            home_address_name=profile.home_address_name,
+            home_location_lat=profile.home_location_lat,
+            home_location_lng=profile.home_location_lng,
+            live_location_sharing_enabled=profile.live_location_sharing_enabled,
             typical_cycle_length_days=profile.typical_cycle_length_days,
             personal_doctor_id=profile.personal_doctor_id,
             personal_doctor_request_status=profile.personal_doctor_request_status,
@@ -60,6 +68,10 @@ class ProfileUpdate(BaseModel):
     notification_preference: Optional[NotificationPreference] = None
     emergency_contact: Optional[EmergencyContact] = None
     companion_preference: Optional[CompanionPreference] = None
+    home_address_name: Optional[str] = None
+    home_location_lat: Optional[str] = None
+    home_location_lng: Optional[str] = None
+    live_location_sharing_enabled: Optional[bool] = None
     typical_cycle_length_days: Optional[int] = None
     preferred_facility_id: Optional[uuid.UUID] = None
 
@@ -70,6 +82,10 @@ class ProfileCreate(BaseModel):
     notification_preference: Optional[NotificationPreference] = None
     emergency_contact: Optional[EmergencyContact] = None
     companion_preference: Optional[CompanionPreference] = None
+    home_address_name: Optional[str] = None
+    home_location_lat: Optional[str] = None
+    home_location_lng: Optional[str] = None
+    live_location_sharing_enabled: bool = False
     typical_cycle_length_days: Optional[int] = None
     preferred_facility_id: Optional[uuid.UUID] = None
 

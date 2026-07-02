@@ -57,6 +57,7 @@ async def login_user(db: AsyncSession, login_in: UserLogin) -> Token:
         access_token=access_token,
         refresh_token=refresh_token,
         token_type="bearer",
+        user_id=user.id,
         staff_memberships=staff_memberships,
     )
 
@@ -79,7 +80,7 @@ async def refresh_user_token(db: AsyncSession, refresh_token: str) -> Token:
         
     access_token = create_access_token(subject=str(user.id))
     new_refresh_token = create_refresh_token(subject=str(user.id))
-    return Token(access_token=access_token, refresh_token=new_refresh_token, token_type="bearer")
+    return Token(access_token=access_token, refresh_token=new_refresh_token, token_type="bearer", user_id=user.id)
 
 async def logout_user(db: AsyncSession) -> dict:
     # For now, we will just return a success response Since we are using stateless JWTs, and the client will discard the tokens. 

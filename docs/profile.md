@@ -22,6 +22,10 @@ Creates a profile for the authenticated user. Returns `409` if a profile already
   },
   "companion_preference": "BOTH",
   "typical_cycle_length_days": 28,
+  "home_address_name": "Kileleshwa, Nairobi",
+  "home_location_lat": "-1.2833",
+  "home_location_lng": "36.8167",
+  "live_location_sharing_enabled": false,
   "preferred_facility_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
 }
 ```
@@ -61,6 +65,10 @@ Returns the authenticated user's profile. If no profile record exists yet, one i
     },
     "companion_preference": "BOTH",
     "typical_cycle_length_days": 28,
+    "home_address_name": "Kileleshwa, Nairobi",
+    "home_location_lat": "-1.2833",
+    "home_location_lng": "36.8167",
+    "live_location_sharing_enabled": false,
     "personal_doctor_id": null,
     "personal_doctor_request_status": null,
     "qr_passport_token": null,
@@ -96,6 +104,10 @@ Partially updates the authenticated user's profile. All fields are optional — 
   },
   "companion_preference": "BOTH",
   "typical_cycle_length_days": 28,
+  "home_address_name": "Kileleshwa, Nairobi",
+  "home_location_lat": "-1.2833",
+  "home_location_lng": "36.8167",
+  "live_location_sharing_enabled": true,
   "preferred_facility_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
 }
 ```
@@ -111,6 +123,10 @@ Partially updates the authenticated user's profile. All fields are optional — 
 | `emergency_contact.phone` | string | ❌ | |
 | `companion_preference` | enum | ❌ | `AI_DOC` \| `PERSONAL_DOCTOR` \| `BOTH` \| `NONE` |
 | `typical_cycle_length_days` | integer | ❌ | Baseline for predictions (default 28) |
+| `home_address_name` | string | ❌ | Descriptive name of the home address |
+| `home_location_lat` | string | ❌ | Latitude of the home address |
+| `home_location_lng` | string | ❌ | Longitude of the home address |
+| `live_location_sharing_enabled` | boolean | ❌ | True if the app has permission to continuously update live location |
 | `preferred_facility_id` | UUID | ❌ | ID of preferred facility |
 
 **Response `200 OK`** — Updated `ProfileRead` object (same shape as `GET /me`).

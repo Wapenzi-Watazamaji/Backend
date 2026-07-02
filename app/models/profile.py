@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING
 from datetime import datetime
 from enum import Enum as PyEnum
 
-from sqlalchemy import String, DateTime, ForeignKey, func, Enum, Integer
+from sqlalchemy import String, DateTime, ForeignKey, func, Enum, Integer, Boolean
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID, ARRAY
 
@@ -55,6 +55,11 @@ class Profile(Base):
     emergency_contact_phone: Mapped[str | None] = mapped_column(String, nullable=True)
 
     companion_preference: Mapped[CompanionPreference | None] = mapped_column(Enum(CompanionPreference, name="companion_pref_enum", create_type=False), nullable=True)
+
+    home_address_name: Mapped[str | None] = mapped_column(String, nullable=True)
+    home_location_lat: Mapped[str | None] = mapped_column(String, nullable=True)
+    home_location_lng: Mapped[str | None] = mapped_column(String, nullable=True)
+    live_location_sharing_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
     typical_cycle_length_days: Mapped[int | None] = mapped_column(Integer, nullable=True, default=28)
 
