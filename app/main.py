@@ -16,7 +16,6 @@ app.add_middleware(
 
 app.include_router(api_router, prefix="/api/v1")
 
-
 from fastapi import Request
 from fastapi.responses import JSONResponse
 from app.utils.exceptions import BaseAppException
