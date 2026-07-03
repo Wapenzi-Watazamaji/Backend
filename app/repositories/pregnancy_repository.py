@@ -217,3 +217,13 @@ async def get_all_flagged_vitals(db: AsyncSession, pregnancy_id: uuid.UUID) -> l
     )
     result = await db.execute(stmt)
     return result.scalars().all()
+
+
+async def update_risk_score_override(
+    db: AsyncSession, score: PregnancyRiskScore, override_data: dict
+) -> PregnancyRiskScore:
+    """Write a clinician_override payload to the latest risk score."""
+    score.clinician_override = override_data
+    await db.flush()
+    await db.refresh(score)
+    return score

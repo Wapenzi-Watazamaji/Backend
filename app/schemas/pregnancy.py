@@ -172,6 +172,11 @@ class ClinicianOverride(BaseModel):
     overriddenAt: datetime
 
 
+class RiskScoreOverrideRequest(BaseModel):
+    level: RiskLevel
+    reason: str
+
+
 class RiskScoreRead(BaseModel):
     score: int
     level: RiskLevel
