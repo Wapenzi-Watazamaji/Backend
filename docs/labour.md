@@ -66,7 +66,32 @@ Authorization: Bearer <access_token>
 Retrieves a specific labour session.
 
 **Response `200 OK`**
-Returns the `LabourSessionRead` object (same structure as above).
+```json
+{
+  "success": true,
+  "message": "Operation successful",
+  "data": {
+    "id": "7719e249-c628-4b33-9511-b6a0fdd75310",
+    "pregnancy_id": "800eb70b-4e2a-45d5-8ddc-43e7127dcdb3",
+    "facility_id": "b071e013-9e82-4143-bca1-2b15ac6498c9",
+    "clinician_id": "f1571b88-0d48-4e88-800c-87bfa0249c81",
+    "status": "ACTIVE",
+    "outcome": null,
+    "delivery_type": null,
+    "active_labour_started_at": "2026-07-03T08:00:00Z",
+    "closed_at": null,
+    "created_at": "2026-07-03T08:00:00Z",
+    "updated_at": "2026-07-03T08:00:00Z"
+  },
+  "meta": {}
+}
+```
+
+**Errors**
+| Status | Code | Trigger |
+|---|---|---|
+| `401` | `UNAUTHORIZED` | Missing or invalid token |
+| `404` | `NOT_FOUND` | Labour session does not exist |
 
 **Errors**
 | Status | Code | Trigger |
@@ -121,7 +146,29 @@ Logs a cervical dilation reading. Will trigger partograph alert logic.
 ```
 
 **Response `201 Created`**
-Returns the created `LabourReadingRead` object.
+```json
+{
+  "success": true,
+  "message": "Operation successful",
+  "data": {
+    "id": "b2c3d4e5-f6a7-4ca5-903a-262ed44b06ac",
+    "session_id": "7719e249-c628-4b33-9511-b6a0fdd75310",
+    "type": "DILATION",
+    "value": 4.0,
+    "meta": null,
+    "recorded_at": "2026-07-03T08:00:00Z",
+    "created_at": "2026-07-03T08:00:00Z"
+  },
+  "meta": {}
+}
+```
+
+**Errors**
+| Status | Code | Trigger |
+|---|---|---|
+| `401` | `UNAUTHORIZED` | Missing or invalid token |
+| `403` | `FORBIDDEN` | Missing clinician role |
+| `404` | `NOT_FOUND` | Labour session does not exist |
 
 ---
 
@@ -201,7 +248,32 @@ Retrieves the computed partograph data points, alert lines, and action lines for
 Lists all auto-generated clinical alerts for the labour session.
 
 **Response `200 OK`**
-Returns a list of `LabourAlertRead` objects.
+```json
+{
+  "success": true,
+  "message": "Operation successful",
+  "data": [
+    {
+      "id": "96ed30ff-c54c-477f-86f6-21daad1ed9b1",
+      "session_id": "7719e249-c628-4b33-9511-b6a0fdd75310",
+      "type": "ACTION_LINE_CROSSED",
+      "severity": "CRITICAL",
+      "message": "Labour progress is now 4 hours behind the expected rate",
+      "acknowledged_at": null,
+      "acknowledged_by": null,
+      "escalated_to": null,
+      "created_at": "2026-07-03T13:00:00Z"
+    }
+  ],
+  "meta": {}
+}
+```
+
+**Errors**
+| Status | Code | Trigger |
+|---|---|---|
+| `401` | `UNAUTHORIZED` | Missing or invalid token |
+| `404` | `NOT_FOUND` | Labour session does not exist |
 
 ---
 
@@ -210,7 +282,31 @@ Returns a list of `LabourAlertRead` objects.
 Marks a labour alert as acknowledged by the clinician.
 
 **Response `200 OK`**
-Returns the updated `LabourAlertRead` object with `acknowledged_at` and `acknowledged_by` populated.
+```json
+{
+  "success": true,
+  "message": "Operation successful",
+  "data": {
+    "id": "96ed30ff-c54c-477f-86f6-21daad1ed9b1",
+    "session_id": "7719e249-c628-4b33-9511-b6a0fdd75310",
+    "type": "ACTION_LINE_CROSSED",
+    "severity": "CRITICAL",
+    "message": "Labour progress is now 4 hours behind the expected rate",
+    "acknowledged_at": "2026-07-03T14:38:45Z",
+    "acknowledged_by": "f1571b88-0d48-4e88-800c-87bfa0249c81",
+    "escalated_to": null,
+    "created_at": "2026-07-03T13:00:00Z"
+  },
+  "meta": {}
+}
+```
+
+**Errors**
+| Status | Code | Trigger |
+|---|---|---|
+| `401` | `UNAUTHORIZED` | Missing or invalid token |
+| `403` | `FORBIDDEN` | Missing clinician role |
+| `404` | `NOT_FOUND` | Alert does not exist or does not belong to session |
 
 ---
 
@@ -226,7 +322,24 @@ Escalates an alert to a higher level or triggers a referral flow.
 ```
 
 **Response `200 OK`**
-Returns a dictionary containing the escalated target.
+```json
+{
+  "success": true,
+  "message": "Operation successful",
+  "data": {
+    "referralId": null,
+    "escalatedTo": "SPECIALIST"
+  },
+  "meta": {}
+}
+```
+
+**Errors**
+| Status | Code | Trigger |
+|---|---|---|
+| `401` | `UNAUTHORIZED` | Missing or invalid token |
+| `403` | `FORBIDDEN` | Missing clinician role |
+| `404` | `NOT_FOUND` | Alert does not exist or does not belong to session |
 
 ---
 
@@ -272,7 +385,31 @@ Logs a completed resuscitation step during delivery.
 ```
 
 **Response `201 Created`**
-Returns the created `ResuscitationLogRead` object.
+```json
+{
+  "success": true,
+  "message": "Operation successful",
+  "data": {
+    "id": "a1b2c3d4-e5f6-4ca5-903a-262ed44b06ac",
+    "session_id": "7719e249-c628-4b33-9511-b6a0fdd75310",
+    "step_order": 1,
+    "completed_at": "2026-07-03T10:00:00Z",
+    "vitals_at_step": {
+      "heartRateBpm": 90,
+      "respiratoryEffort": "GASPING"
+    },
+    "created_at": "2026-07-03T10:00:00Z"
+  },
+  "meta": {}
+}
+```
+
+**Errors**
+| Status | Code | Trigger |
+|---|---|---|
+| `401` | `UNAUTHORIZED` | Missing or invalid token |
+| `403` | `FORBIDDEN` | Missing clinician role |
+| `404` | `NOT_FOUND` | Labour session does not exist |
 
 ---
 
