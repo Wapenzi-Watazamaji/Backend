@@ -9,10 +9,13 @@ engine = create_async_engine(
     echo=False,
     connect_args={
         "ssl": "require",
+        "server_settings": {"application_name": "binticare"},
         "statement_cache_size": 0,
     },
     pool_pre_ping=True,
-    pool_recycle=300
+    pool_recycle=300,
+    pool_timeout=60,
+    pool_use_lifo=True
 )
 
 # Create the async session factory
