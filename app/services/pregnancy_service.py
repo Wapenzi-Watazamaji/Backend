@@ -10,6 +10,7 @@ from app.models.pregnancy import (
     ScheduledVisit, PregnancyRiskScore, WeekInfo, NutritionGuidance,
     VisitStatus, RiskLevel, NutritionCategory,
 )
+from app.schemas.pregnancy import ManualVisitCreateRequest,VisitUpdateRequest
 from app.models.profile import CurrentStage, Profile
 from app.models.cycle import FormContext
 from app.repositories import pregnancy_repository, cycle_repository
@@ -17,6 +18,8 @@ from app.services.cycle_service import validate_answers_against_template
 from app.utils.exceptions import (
     NotFoundError, NoActivePregnancyError, ActivePregnancyExistsError, ForbiddenError,
 )
+
+
 
 MOH_ANC_PATHWAY_ID = "path_anc_moh_v1"
 
@@ -389,28 +392,46 @@ async def list_anc_visits(db: AsyncSession, user_id: uuid.UUID) -> list[Schedule
     return await pregnancy_repository.list_scheduled_visits(db, pregnancy.id)
 
 
-async def create_manual_anc_visit(db: AsyncSession, user_id: uuid.UUID, data) -> ScheduledVisit:
+async def create_manual_anc_visit(
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    data: ManualVisitCreateRequest,
+    facility_id: Optional[uuid.UUID] = None,
+) -> ScheduledVisit:
     pregnancy = await pregnancy_repository.get_active_pregnancy(db, user_id)
     if not pregnancy:
         raise NoActivePregnancyError(message="No active pregnancy found")
-    visit = await pregnancy_repository.create_scheduled_visit(db, {
-        "pregnancy_id": pregnancy.id,
-        "pathway_template_id": None,
-        "label": data.purpose[:120],
-        "scheduled_at": data.scheduledAt,
-        "status": VisitStatus.SCHEDULED,
-        "facility_id": data.facilityId,
-        "purpose": data.purpose,
-    })
+
+    # Header/context facility takes priority; fall back to the body value if not present
+    resolved_facility_id = facility_id or data.facilityId
+
+    visit = await pregnancy_repository.create_scheduled_visit(
+        db,
+        {
+            "pregnancy_id": pregnancy.id,
+            "pathway_template_id": None,
+            "label": data.purpose[:120],
+            "scheduled_at": data.scheduledAt,
+            "status": VisitStatus.SCHEDULED,
+            "facility_id": resolved_facility_id,
+            "purpose": data.purpose,
+        },
+    )
     await db.commit()
     await db.refresh(visit)
     return visit
 
 
-async def update_anc_visit(db: AsyncSession, visit_id: uuid.UUID, user_id: uuid.UUID, data) -> ScheduledVisit:
-    pregnancy = await pregnancy_repository.get_active_pregnancy(db, user_id)
+async def update_anc_visit(
+    db: AsyncSession,
+    visit_id: uuid.UUID,
+    patient_id: uuid.UUID,
+    data: VisitUpdateRequest,
+) -> ScheduledVisit:
+    pregnancy = await pregnancy_repository.get_active_pregnancy(db, patient_id)
     if not pregnancy:
         raise NoActivePregnancyError(message="No active pregnancy found")
+
     visit = await pregnancy_repository.get_scheduled_visit_by_id(db, visit_id, pregnancy.id)
     if not visit:
         raise NotFoundError(message="Scheduled visit not found")

@@ -173,24 +173,40 @@ async def list_anc_visits(
     return create_success_response(data=visits)
 
 
-@router.post("/anc-visits/manual", response_model=APIResponse[VisitRead], status_code=status.HTTP_201_CREATED, responses=STANDARD_ERROR_RESPONSES)
+@router.post(
+    "/anc-visits/manual/{patient_id}",
+    response_model=APIResponse[VisitRead],
+    status_code=status.HTTP_201_CREATED,
+    responses=STANDARD_ERROR_RESPONSES,
+)
 async def create_manual_visit(
+    patient_id: uuid.UUID,
     data: ManualVisitCreateRequest,
     db: AsyncSession = Depends(deps.get_db),
-    current_user: User = Depends(deps.require_clinician),
+    facility_id: uuid.UUID = Depends(deps.get_facility_context),
 ):
-    visit = await pregnancy_service.create_manual_anc_visit(db, current_user.id, data)
+    visit = await pregnancy_service.create_manual_anc_visit(
+        db, patient_id, data, facility_id
+    )
     return create_success_response(data=visit)
 
 
-@router.put("/anc-visits/{visit_id}", response_model=APIResponse[VisitRead], responses=STANDARD_ERROR_RESPONSES)
+@router.put(
+    "/anc-visits/{visit_id}/patient/{user_id}",
+    response_model=APIResponse[VisitRead],
+    responses=STANDARD_ERROR_RESPONSES,
+)
 async def update_anc_visit(
     visit_id: uuid.UUID,
+    user_id: uuid.UUID,
     data: VisitUpdateRequest,
     db: AsyncSession = Depends(deps.get_db),
-    current_user: User = Depends(deps.get_current_user),
+    current_user: User = Depends(deps.require_clinician),
+    facility_id: uuid.UUID = Depends(deps.get_facility_context),
 ):
-    visit = await pregnancy_service.update_anc_visit(db, visit_id, current_user.id, data)
+    visit = await pregnancy_service.update_anc_visit(
+        db, visit_id, patient_id=user_id, data=data
+    )
     return create_success_response(data=visit)
 
 
