@@ -1,32 +1,48 @@
 import uuid
 from datetime import datetime
-from pydantic import BaseModel, ConfigDict, Field
 from typing import Optional
 
-from app.models.referral import ReferralReason, ReferralPriority, ReferralStatus
+from pydantic import BaseModel
+
+from app.models.referral import ReferralReason, ReferralStatus
+
 
 class ReferralCreate(BaseModel):
-    patient_id: uuid.UUID
-    receiving_facility_id: uuid.UUID
+    toFacilityId: uuid.UUID
+    fromFacilityId: uuid.UUID
     reason: ReferralReason
-    priority: ReferralPriority
-    clinical_notes: str
+    notes: Optional[str] = None
+    isEmergency: bool = False
+    offlineQueued: bool = False
+    clientCreatedAt: Optional[datetime] = None
 
-class ReferralUpdate(BaseModel):
-    status: ReferralStatus
-    rejection_reason: Optional[str] = None
 
 class ReferralRead(BaseModel):
     id: uuid.UUID
     patient_id: uuid.UUID
-    sending_facility_id: uuid.UUID
-    receiving_facility_id: uuid.UUID
+    to_facility_id: uuid.UUID
+    from_facility_id: uuid.UUID
     reason: ReferralReason
-    priority: ReferralPriority
+    notes: Optional[str] = None
+    is_emergency: bool
     status: ReferralStatus
-    clinical_notes: str
     rejection_reason: Optional[str] = None
+    completed_at: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = {"from_attributes": True}
+
+
+class ReferralRejectRequest(BaseModel):
+    reason: str
+
+
+class ReferralPatientSummary(BaseModel):
+    patient: dict
+    gestationalAgeWeeks: Optional[int] = None
+    activeRiskFlags: list[str]
+    reasonForVisit: str
+    recentVitals: Optional[dict] = None
+    allergies: list[str]
+    emergencyContact: Optional[dict] = None

@@ -1,114 +1,164 @@
 import uuid
-from fastapi import HTTPException
+from datetime import datetime, timezone
+from typing import Optional
+
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, and_
 
 from app.models.referral import Referral, ReferralStatus
-from app.schemas.referral import ReferralCreate, ReferralUpdate
+from app.models.pregnancy import PregnancyRecord, PregnancyRiskScore
 from app.models.user import User
-from app.models.profile import Profile, SharingPreference
-from app.models.consent import Consent, ConsentType
-from app.models.facility import Facility
+from app.models.profile import Profile
+from app.repositories import referral_repository
+from app.utils.exceptions import NotFoundError, ValidationError
 
-async def create_referral(db: AsyncSession, sending_facility_id: uuid.UUID, req: ReferralCreate) -> Referral:
-    # Ensure patient exists
-    patient = await db.get(User, req.patient_id)
-    if not patient:
-        raise HTTPException(status_code=404, detail="Patient not found")
-        
-    referral = Referral(
-        patient_id=req.patient_id,
-        sending_facility_id=sending_facility_id,
-        receiving_facility_id=req.receiving_facility_id,
-        reason=req.reason,
-        priority=req.priority,
-        clinical_notes=req.clinical_notes,
-        status=ReferralStatus.PENDING
-    )
-    db.add(referral)
+
+async def create_referral(
+    db: AsyncSession, patient_id: uuid.UUID, data
+) -> Referral:
+    if data.offlineQueued and not data.clientCreatedAt:
+        raise ValidationError(message="clientCreatedAt is required when offlineQueued is true")
+
+    referral = await referral_repository.create_referral(db, {
+        "patient_id": patient_id,
+        "to_facility_id": data.toFacilityId,
+        "from_facility_id": data.fromFacilityId,
+        "reason": data.reason,
+        "notes": data.notes,
+        "is_emergency": data.isEmergency,
+        "offline_queued": data.offlineQueued,
+        "client_created_at": data.clientCreatedAt,
+        "status": ReferralStatus.PENDING,
+    })
     await db.commit()
     await db.refresh(referral)
     return referral
 
-async def get_facility_inbox(db: AsyncSession, facility_id: uuid.UUID) -> list[Referral]:
-    result = await db.execute(
-        select(Referral).where(Referral.receiving_facility_id == facility_id).order_by(Referral.created_at.desc())
-    )
-    return result.scalars().all()
 
-async def get_facility_outbox(db: AsyncSession, facility_id: uuid.UUID) -> list[Referral]:
-    result = await db.execute(
-        select(Referral).where(Referral.sending_facility_id == facility_id).order_by(Referral.created_at.desc())
-    )
-    return result.scalars().all()
-
-async def update_referral_status(db: AsyncSession, referral_id: uuid.UUID, facility_id: uuid.UUID, req: ReferralUpdate) -> Referral:
-    referral = await db.get(Referral, referral_id)
+async def get_referral(db: AsyncSession, referral_id: uuid.UUID) -> Referral:
+    referral = await referral_repository.get_referral_by_id(db, referral_id)
     if not referral:
-        raise HTTPException(status_code=404, detail="Referral not found")
-        
-    # Security: only the receiving facility can accept/reject/complete
-    if referral.receiving_facility_id != facility_id:
-        raise HTTPException(status_code=403, detail="Only the receiving facility can update this referral")
-        
-    referral.status = req.status
-    if req.rejection_reason:
-        referral.rejection_reason = req.rejection_reason
-        
-    await db.commit()
-    await db.refresh(referral)
+        raise NotFoundError(message="Referral not found")
     return referral
 
-async def request_records_access(db: AsyncSession, referral_id: uuid.UUID, facility_id: uuid.UUID) -> dict:
-    referral = await db.get(Referral, referral_id)
-    if not referral:
-        raise HTTPException(status_code=404, detail="Referral not found")
-        
-    if referral.receiving_facility_id != facility_id:
-        raise HTTPException(status_code=403, detail="Only the receiving facility can request access")
-        
+
+async def list_referrals(
+    db: AsyncSession,
+    facility_id: Optional[uuid.UUID] = None,
+    status: Optional[ReferralStatus] = None,
+    direction: Optional[str] = None,
+    page: int = 1,
+    page_size: int = 20,
+) -> list[Referral]:
+    return await referral_repository.list_referrals(
+        db,
+        facility_id=facility_id,
+        status=status,
+        direction=direction,
+        page=page,
+        page_size=page_size,
+    )
+
+
+async def accept_referral(db: AsyncSession, referral_id: uuid.UUID) -> Referral:
+    referral = await get_referral(db, referral_id)
+    if referral.status != ReferralStatus.PENDING:
+        raise ValidationError(message="Only PENDING referrals can be accepted")
+
+    updated = await referral_repository.update_referral(db, referral, {"status": ReferralStatus.ACCEPTED})
+    await db.commit()
+    await db.refresh(updated)
+    return updated
+
+
+async def reject_referral(db: AsyncSession, referral_id: uuid.UUID, data) -> Referral:
+    referral = await get_referral(db, referral_id)
+    if referral.status != ReferralStatus.PENDING:
+        raise ValidationError(message="Only PENDING referrals can be rejected")
+
+    updated = await referral_repository.update_referral(db, referral, {
+        "status": ReferralStatus.REJECTED,
+        "rejection_reason": data.reason,
+    })
+    await db.commit()
+    await db.refresh(updated)
+    return updated
+
+
+async def complete_referral(db: AsyncSession, referral_id: uuid.UUID) -> Referral:
+    referral = await get_referral(db, referral_id)
     if referral.status != ReferralStatus.ACCEPTED:
-        raise HTTPException(status_code=400, detail="Referral must be accepted before requesting records access")
-        
-    # Get Patient Profile
-    result = await db.execute(select(Profile).where(Profile.user_id == referral.patient_id))
-    profile = result.scalar_one_or_none()
-    
-    if not profile or not profile.emergency_sharing_preference:
-        # Default to ASK_FIRST if not set
-        pref = SharingPreference.ASK_FIRST
-    else:
-        pref = profile.emergency_sharing_preference
-        
-    if pref == SharingPreference.NEVER_SHARE:
-        raise HTTPException(status_code=403, detail="Patient has locked their health records. Access denied.")
-        
-    if pref == SharingPreference.ALWAYS_SHARE:
-        # Create Consent immediately
-        facility = await db.get(Facility, facility_id)
-        
-        # Check if consent already exists
-        existing_result = await db.execute(
-            select(Consent).where(
-                Consent.user_id == referral.patient_id,
-                Consent.grantee_id == str(facility_id),
-                Consent.active == True
-            )
-        )
-        existing_consent = existing_result.scalar_one_or_none()
-        
-        if not existing_consent:
-            consent = Consent(
-                user_id=referral.patient_id,
-                consent_type=ConsentType.FACILITY_AUTO_SHARE,
-                grantee_id=str(facility_id),
-                grantee_name=facility.name,
-                active=True
-            )
-            db.add(consent)
-            await db.commit()
-            
-        return {"status": "access_granted", "message": "Access granted via ALWAYS_SHARE preference"}
-        
-    # If ASK_FIRST, return pending status (mock sending push notification)
-    return {"status": "pending_consent", "message": "Push notification sent to patient asking for consent"}
+        raise ValidationError(message="Only ACCEPTED referrals can be completed")
+
+    updated = await referral_repository.update_referral(db, referral, {
+        "status": ReferralStatus.COMPLETED,
+        "completed_at": datetime.now(timezone.utc),
+    })
+    await db.commit()
+    await db.refresh(updated)
+    return updated
+
+
+async def get_patient_summary(db: AsyncSession, referral_id: uuid.UUID) -> dict:
+    referral = await get_referral(db, referral_id)
+
+    stmt = select(User).where(User.id == referral.patient_id)
+    result = await db.execute(stmt)
+    patient = result.scalars().first()
+    if not patient:
+        raise NotFoundError(message="Patient not found")
+
+    stmt = select(Profile).where(Profile.user_id == patient.id)
+    result = await db.execute(stmt)
+    profile = result.scalars().first()
+
+    stmt = (
+        select(PregnancyRecord)
+        .where(PregnancyRecord.user_id == patient.id)
+        .order_by(PregnancyRecord.created_at.desc())
+    )
+    result = await db.execute(stmt)
+    pregnancy = result.scalars().first()
+
+    gestational_weeks = None
+    if pregnancy:
+        from datetime import date
+        today = date.today()
+        gestational_weeks = (today - pregnancy.last_menstrual_period).days // 7
+
+    stmt = (
+        select(PregnancyRiskScore)
+        .where(PregnancyRiskScore.user_id == patient.id)
+        .order_by(PregnancyRiskScore.calculated_at.desc())
+    )
+    result = await db.execute(stmt)
+    risk_score = result.scalars().first()
+    active_flags = [f["label"] for f in risk_score.factors] if risk_score and risk_score.factors else []
+
+    from datetime import date
+    dob = patient.date_of_birth
+    age = None
+    if dob:
+        today = date.today()
+        age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
+
+    emergency_contact = None
+    if profile and hasattr(profile, "emergency_contact_name") and profile.emergency_contact_name:
+        emergency_contact = {
+            "name": profile.emergency_contact_name,
+            "phoneNumber": getattr(profile, "emergency_contact_phone", None),
+        }
+
+    return {
+        "patient": {
+            "fullName": patient.full_name,
+            "age": age,
+            "bloodType": None,
+        },
+        "gestationalAgeWeeks": gestational_weeks,
+        "activeRiskFlags": active_flags,
+        "reasonForVisit": referral.reason.value,
+        "recentVitals": None,
+        "allergies": [],
+        "emergencyContact": emergency_contact,
+    }
