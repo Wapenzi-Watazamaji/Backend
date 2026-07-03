@@ -10,7 +10,10 @@ from app.models.pregnancy import (
     ScheduledVisit, PregnancyRiskScore, WeekInfo, NutritionGuidance,
     VisitStatus, RiskLevel, NutritionCategory,
 )
-from app.schemas.pregnancy import ManualVisitCreateRequest,VisitUpdateRequest
+from app.schemas.pregnancy import (
+    ManualVisitCreateRequest,
+    VisitUpdateRequest
+)
 from app.models.profile import CurrentStage, Profile
 from app.models.cycle import FormContext
 from app.repositories import pregnancy_repository, cycle_repository
