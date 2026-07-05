@@ -9,10 +9,6 @@ from sqlalchemy.dialects.postgresql import UUID
 from app.db.base import Base
 
 
-# ------------------------------------------------------------------ #
-# Enums                                                               #
-# ------------------------------------------------------------------ #
-
 class BabyGender(str, PyEnum):
     MALE = "MALE"
     FEMALE = "FEMALE"
@@ -39,9 +35,6 @@ class MilestoneCategory(str, PyEnum):
     FIRST_MOMENTS = "FIRST_MOMENTS"
 
 
-# ------------------------------------------------------------------ #
-# Baby Profile                                                        #
-# ------------------------------------------------------------------ #
 
 class BabyProfile(Base):
     __tablename__ = "baby_profiles"
@@ -73,9 +66,6 @@ class BabyProfile(Base):
     vaccination_records: Mapped[list["BabyVaccinationRecord"]] = relationship("BabyVaccinationRecord", back_populates="baby", cascade="all, delete-orphan")
 
 
-# ------------------------------------------------------------------ #
-# Baby Milestone                                                      #
-# ------------------------------------------------------------------ #
 
 class BabyMilestone(Base):
     __tablename__ = "baby_milestones"
@@ -98,12 +88,7 @@ class BabyMilestone(Base):
     baby: Mapped["BabyProfile"] = relationship("BabyProfile", back_populates="milestones")
 
 
-# ------------------------------------------------------------------ #
-# Baby Vaccination Record                                             #
-# ------------------------------------------------------------------ #
-
 class BabyVaccinationRecord(Base):
-    """Stores a single administered vaccination event, linked to a ScheduledVisit."""
     __tablename__ = "baby_vaccination_records"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -119,10 +104,6 @@ class BabyVaccinationRecord(Base):
 
     baby: Mapped["BabyProfile"] = relationship("BabyProfile", back_populates="vaccination_records")
 
-
-# ------------------------------------------------------------------ #
-# EPDS Screening                                                      #
-# ------------------------------------------------------------------ #
 
 class EpdsScreening(Base):
     __tablename__ = "epds_screenings"

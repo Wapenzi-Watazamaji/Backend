@@ -8,9 +8,6 @@ from app.models.postpartum import BabyProfile, BabyMilestone, BabyVaccinationRec
 from app.models.pregnancy import ScheduledVisit
 
 
-# ------------------------------------------------------------------ #
-# Baby Profile                                                        #
-# ------------------------------------------------------------------ #
 
 async def create_baby_profile(db: AsyncSession, data: dict) -> BabyProfile:
     obj = BabyProfile(**data)
@@ -56,10 +53,6 @@ async def update_baby_profile(db: AsyncSession, profile: BabyProfile, data: dict
     return profile
 
 
-# ------------------------------------------------------------------ #
-# Baby Milestones                                                     #
-# ------------------------------------------------------------------ #
-
 async def create_milestone(db: AsyncSession, data: dict) -> BabyMilestone:
     obj = BabyMilestone(**data)
     db.add(obj)
@@ -81,9 +74,6 @@ async def list_milestones(
     return result.scalars().all()
 
 
-# ------------------------------------------------------------------ #
-# Baby Vaccinations                                                   #
-# ------------------------------------------------------------------ #
 
 async def create_vaccination_record(db: AsyncSession, data: dict) -> BabyVaccinationRecord:
     obj = BabyVaccinationRecord(**data)
@@ -97,7 +87,6 @@ async def get_vaccination_scheduled_visits(
     db: AsyncSession,
     baby_id: uuid.UUID,
 ) -> list[ScheduledVisit]:
-    """Fetch all ScheduledVisit rows that belong to this baby's vaccination pathway."""
     stmt = (
         select(ScheduledVisit)
         .where(ScheduledVisit.baby_id == baby_id)
@@ -134,10 +123,6 @@ async def get_vaccination_record_by_visit(
     return result.scalars().first()
 
 
-# ------------------------------------------------------------------ #
-# EPDS Screening                                                      #
-# ------------------------------------------------------------------ #
-
 async def create_epds_screening(db: AsyncSession, data: dict) -> EpdsScreening:
     obj = EpdsScreening(**data)
     db.add(obj)
@@ -167,6 +152,5 @@ async def get_latest_epds_screening(db: AsyncSession, user_id: uuid.UUID) -> Epd
 
 
 async def has_active_self_harm_flag(db: AsyncSession, user_id: uuid.UUID) -> bool:
-    """Returns True if the most recent EPDS had a self-harm flag."""
     latest = await get_latest_epds_screening(db, user_id)
     return bool(latest and latest.is_self_harm_flagged)
