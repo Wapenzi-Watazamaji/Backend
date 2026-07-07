@@ -11,6 +11,7 @@ from app.db.base import Base
 
 if TYPE_CHECKING:
     from app.models.cycle import FormSubmission
+    from app.models.postpartum import BabyProfile
 
 
 class PregnancyStatus(str, PyEnum):
@@ -71,6 +72,7 @@ class PregnancyRecord(Base):
     vitals_entries: Mapped[list["PregnancyVitalsEntry"]] = relationship("PregnancyVitalsEntry", back_populates="pregnancy", cascade="all, delete-orphan")
     scheduled_visits: Mapped[list["ScheduledVisit"]] = relationship("ScheduledVisit", back_populates="pregnancy", cascade="all, delete-orphan")
     risk_scores: Mapped[list["PregnancyRiskScore"]] = relationship("PregnancyRiskScore", back_populates="pregnancy", cascade="all, delete-orphan")
+    babies: Mapped[list["BabyProfile"]] = relationship("BabyProfile", back_populates="pregnancy", foreign_keys="BabyProfile.pregnancy_id")
 
 
 class CarePathwayTemplate(Base):

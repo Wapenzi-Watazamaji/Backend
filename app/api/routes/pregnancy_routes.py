@@ -12,7 +12,7 @@ from app.schemas.pregnancy import (
     PregnancyRecordRead, WeekInfoRead, VitalsCreateRequest, VitalsUpdateRequest,
     VitalsEntryRead, FeedbackCreateRequest, FeedbackRead, VisitRead,
     ManualVisitCreateRequest, VisitUpdateRequest, NutritionGuidanceRead,
-    RiskScoreRead, RiskScoreHistoryItem, FormTemplateRead,
+    RiskScoreRead, RiskScoreHistoryItem, FormTemplateRead, RiskScoreOverrideRequest,
 )
 from app.services import pregnancy_service
 from app.utils.exceptions import create_success_response, APIResponse
@@ -173,24 +173,41 @@ async def list_anc_visits(
     return create_success_response(data=visits)
 
 
-@router.post("/anc-visits/manual", response_model=APIResponse[VisitRead], status_code=status.HTTP_201_CREATED, responses=STANDARD_ERROR_RESPONSES)
+@router.post(
+    "/anc-visits/manual/{patient_id}",
+    response_model=APIResponse[VisitRead],
+    status_code=status.HTTP_201_CREATED,
+    responses=STANDARD_ERROR_RESPONSES,
+)
 async def create_manual_visit(
+    patient_id: uuid.UUID,
     data: ManualVisitCreateRequest,
     db: AsyncSession = Depends(deps.get_db),
     current_user: User = Depends(deps.require_clinician),
+    facility_id: uuid.UUID = Depends(deps.get_facility_context),
 ):
-    visit = await pregnancy_service.create_manual_anc_visit(db, current_user.id, data)
+    visit = await pregnancy_service.create_manual_anc_visit(
+        db, patient_id, data, facility_id
+    )
     return create_success_response(data=visit)
 
 
-@router.put("/anc-visits/{visit_id}", response_model=APIResponse[VisitRead], responses=STANDARD_ERROR_RESPONSES)
+@router.put(
+    "/anc-visits/{visit_id}/patient/{user_id}",
+    response_model=APIResponse[VisitRead],
+    responses=STANDARD_ERROR_RESPONSES,
+)
 async def update_anc_visit(
     visit_id: uuid.UUID,
+    user_id: uuid.UUID,
     data: VisitUpdateRequest,
     db: AsyncSession = Depends(deps.get_db),
-    current_user: User = Depends(deps.get_current_user),
+    current_user: User = Depends(deps.require_clinician),
+    facility_id: uuid.UUID = Depends(deps.get_facility_context),
 ):
-    visit = await pregnancy_service.update_anc_visit(db, visit_id, current_user.id, data)
+    visit = await pregnancy_service.update_anc_visit(
+        db, visit_id, patient_id=user_id, data=data
+    )
     return create_success_response(data=visit)
 
 
@@ -220,3 +237,20 @@ async def get_risk_score_history(
 ):
     history = await pregnancy_service.get_risk_score_history(db, current_user.id)
     return create_success_response(data=history)
+
+
+@router.put(
+    "/patients/{patient_id}/risk-score/override",
+    response_model=APIResponse[RiskScoreRead],
+    responses=STANDARD_ERROR_RESPONSES,
+    summary="Clinician: override risk level for a patient",
+)
+async def override_risk_score(
+    patient_id: uuid.UUID,
+    data: RiskScoreOverrideRequest,
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.require_clinician),
+    facility_id: uuid.UUID = Depends(deps.get_facility_context),
+):
+    score = await pregnancy_service.override_risk_score(db, patient_id, current_user.id, data)
+    return create_success_response(data=score)

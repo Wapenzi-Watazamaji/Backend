@@ -1,5 +1,6 @@
 from fastapi import APIRouter
-from app.api.routes import auth_routes, profile_routes, facility_routes, cycle_routes, pregnancy_routes, postpartum_routes, labour_routes, referral_routes, emergency_routes
+from app.api.routes import auth_routes, profile_routes, facility_routes, cycle_routes, referral_routes, emergency_routes, pregnancy_routes, postpartum_routes, education_routes,labour_routes
+
 
 api_router = APIRouter()
 api_router.include_router(auth_routes.router, prefix="/auth", tags=["Authentication"])
@@ -11,3 +12,4 @@ api_router.include_router(postpartum_routes.router, prefix="/postpartum", tags=[
 api_router.include_router(labour_routes.router, prefix="/labour", tags=["Labour & Birth Monitor"])
 api_router.include_router(referral_routes.router, prefix="/referrals", tags=["Referrals"])
 api_router.include_router(emergency_routes.router, tags=["Emergencies"])
+api_router.include_router(education_routes.router)

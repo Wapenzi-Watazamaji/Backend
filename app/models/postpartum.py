@@ -1,12 +1,16 @@
 import uuid
 from datetime import datetime, date, time
 from enum import Enum as PyEnum
+from typing import TYPE_CHECKING
 
 from sqlalchemy import String, Boolean, DateTime, Date, Time, Float, ForeignKey, func, Enum, Text, Integer, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID
 
 from app.db.base import Base
+
+if TYPE_CHECKING:
+    from app.models.pregnancy import PregnancyRecord
 
 
 class BabyGender(str, PyEnum):
@@ -64,6 +68,7 @@ class BabyProfile(Base):
 
     milestones: Mapped[list["BabyMilestone"]] = relationship("BabyMilestone", back_populates="baby", cascade="all, delete-orphan")
     vaccination_records: Mapped[list["BabyVaccinationRecord"]] = relationship("BabyVaccinationRecord", back_populates="baby", cascade="all, delete-orphan")
+    pregnancy: Mapped["PregnancyRecord | None"] = relationship("PregnancyRecord", back_populates="babies", foreign_keys=[pregnancy_id])
 
 
 

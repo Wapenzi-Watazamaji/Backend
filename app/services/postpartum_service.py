@@ -147,6 +147,12 @@ async def create_baby_profile(db: AsyncSession, user_id: uuid.UUID, data) -> Bab
         parts = data.timeOfBirth.split(":")
         time_of_birth = dt_time(int(parts[0]), int(parts[1]))
 
+    # Validate pregnancy ownership if pregnancyId is provided
+    if data.pregnancyId:
+        pregnancy = await pregnancy_repository.get_pregnancy_by_id(db, data.pregnancyId)
+        if not pregnancy or pregnancy.user_id != user_id:
+            raise NotFoundError(message="Pregnancy record not found or does not belong to this user")
+
     profile = await postpartum_repository.create_baby_profile(db, {
         "user_id": user_id,
         "name": data.name,
@@ -167,6 +173,7 @@ async def create_baby_profile(db: AsyncSession, user_id: uuid.UUID, data) -> Bab
     await db.commit()
     await db.refresh(profile)
     return profile
+
 
 
 async def list_baby_profiles(db: AsyncSession, user_id: uuid.UUID) -> list[BabyProfile]:

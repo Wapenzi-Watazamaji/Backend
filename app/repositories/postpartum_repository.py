@@ -37,6 +37,19 @@ async def list_baby_profiles(db: AsyncSession, user_id: uuid.UUID) -> list[BabyP
     return result.scalars().all()
 
 
+async def list_baby_profiles_by_pregnancy_id(
+    db: AsyncSession, pregnancy_id: uuid.UUID
+) -> list[BabyProfile]:
+    """Fetch all babies linked to a given pregnancy (handles twins/multiples)."""
+    stmt = (
+        select(BabyProfile)
+        .where(BabyProfile.pregnancy_id == pregnancy_id)
+        .order_by(BabyProfile.created_at.asc())
+    )
+    result = await db.execute(stmt)
+    return result.scalars().all()
+
+
 async def get_baby_profile_by_id(db: AsyncSession, profile_id: uuid.UUID, user_id: uuid.UUID) -> BabyProfile | None:
     stmt = select(BabyProfile).where(
         and_(BabyProfile.id == profile_id, BabyProfile.user_id == user_id)

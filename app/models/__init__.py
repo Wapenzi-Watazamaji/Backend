@@ -10,10 +10,13 @@ from .pregnancy import (
     PregnancyStatus, PregnancyOutcome, VisitStatus, RiskLevel, NutritionCategory,
 )
 from .postpartum import BabyProfile, EpdsScreening, BabyGender, EpdsRiskLevel
-from .referral import Referral, ReferralReason, ReferralStatus
+
 from .emergency import EmergencyRequest, EmergencyStatus
 from .labour import (
     LabourSession, LabourReading, LabourAlert, ResuscitationLog,
     LabourSessionStatus, LabourOutcome, LabourDeliveryType,
     LabourReadingType, AlertType, AlertSeverity,
 )
+from .referral import Referral, ReferralReason, ReferralPriority, ReferralStatus
+from .education import EducationContent, EducationEvent, ContentCategory
+

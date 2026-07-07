@@ -10,6 +10,10 @@ from app.models.pregnancy import (
     ScheduledVisit, PregnancyRiskScore, WeekInfo, NutritionGuidance,
     VisitStatus, RiskLevel, NutritionCategory,
 )
+from app.schemas.pregnancy import (
+    ManualVisitCreateRequest,
+    VisitUpdateRequest
+)
 from app.models.profile import CurrentStage, Profile
 from app.models.cycle import FormContext
 from app.repositories import pregnancy_repository, cycle_repository
@@ -17,6 +21,8 @@ from app.services.cycle_service import validate_answers_against_template
 from app.utils.exceptions import (
     NotFoundError, NoActivePregnancyError, ActivePregnancyExistsError, ForbiddenError,
 )
+
+
 
 MOH_ANC_PATHWAY_ID = "path_anc_moh_v1"
 
@@ -239,7 +245,18 @@ async def end_pregnancy(db: AsyncSession, user_id: uuid.UUID, data) -> Pregnancy
         "outcome": data.outcome,
         "ended_at": data.endedAt,
     })
-    await _update_profile_stage(db, user_id, CurrentStage.POSTPARTUM)
+
+    from app.models.pregnancy import PregnancyOutcome
+    if data.outcome == PregnancyOutcome.LIVE_BIRTH:
+        # Transition to postpartum and auto-generate postnatal clinic schedule
+        await _update_profile_stage(db, user_id, CurrentStage.POSTPARTUM)
+        from app.services.postpartum_service import _generate_postnatal_visits
+        delivery_date = data.endedAt.date() if data.endedAt else date.today()
+        await _generate_postnatal_visits(db, pregnancy.id, delivery_date)
+    else:
+        # MISCARRIAGE, STILLBIRTH, OTHER → return to NOT_PREGNANT
+        await _update_profile_stage(db, user_id, CurrentStage.NOT_PREGNANT)
+
     await db.commit()
     await db.refresh(updated)
     return updated
@@ -389,28 +406,46 @@ async def list_anc_visits(db: AsyncSession, user_id: uuid.UUID) -> list[Schedule
     return await pregnancy_repository.list_scheduled_visits(db, pregnancy.id)
 
 
-async def create_manual_anc_visit(db: AsyncSession, user_id: uuid.UUID, data) -> ScheduledVisit:
+async def create_manual_anc_visit(
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    data: ManualVisitCreateRequest,
+    facility_id: Optional[uuid.UUID] = None,
+) -> ScheduledVisit:
     pregnancy = await pregnancy_repository.get_active_pregnancy(db, user_id)
     if not pregnancy:
         raise NoActivePregnancyError(message="No active pregnancy found")
-    visit = await pregnancy_repository.create_scheduled_visit(db, {
-        "pregnancy_id": pregnancy.id,
-        "pathway_template_id": None,
-        "label": data.purpose[:120],
-        "scheduled_at": data.scheduledAt,
-        "status": VisitStatus.SCHEDULED,
-        "facility_id": data.facilityId,
-        "purpose": data.purpose,
-    })
+
+    # Header/context facility takes priority; fall back to the body value if not present
+    resolved_facility_id = facility_id or data.facilityId
+
+    visit = await pregnancy_repository.create_scheduled_visit(
+        db,
+        {
+            "pregnancy_id": pregnancy.id,
+            "pathway_template_id": None,
+            "label": data.purpose[:120],
+            "scheduled_at": data.scheduledAt,
+            "status": VisitStatus.SCHEDULED,
+            "facility_id": resolved_facility_id,
+            "purpose": data.purpose,
+        },
+    )
     await db.commit()
     await db.refresh(visit)
     return visit
 
 
-async def update_anc_visit(db: AsyncSession, visit_id: uuid.UUID, user_id: uuid.UUID, data) -> ScheduledVisit:
-    pregnancy = await pregnancy_repository.get_active_pregnancy(db, user_id)
+async def update_anc_visit(
+    db: AsyncSession,
+    visit_id: uuid.UUID,
+    patient_id: uuid.UUID,
+    data: VisitUpdateRequest,
+) -> ScheduledVisit:
+    pregnancy = await pregnancy_repository.get_active_pregnancy(db, patient_id)
     if not pregnancy:
         raise NoActivePregnancyError(message="No active pregnancy found")
+
     visit = await pregnancy_repository.get_scheduled_visit_by_id(db, visit_id, pregnancy.id)
     if not visit:
         raise NotFoundError(message="Scheduled visit not found")
@@ -452,3 +487,24 @@ async def get_risk_score_history(db: AsyncSession, user_id: uuid.UUID) -> list[P
     if not pregnancy:
         raise NoActivePregnancyError(message="No active pregnancy found")
     return await pregnancy_repository.list_risk_score_history(db, pregnancy.id)
+
+
+async def override_risk_score(
+    db: AsyncSession, user_id: uuid.UUID, clinician_id: uuid.UUID, data
+) -> PregnancyRiskScore:
+    """Allow a clinician to override the system-calculated risk level on the latest score."""
+    pregnancy = await pregnancy_repository.get_active_pregnancy(db, user_id)
+    if not pregnancy:
+        raise NoActivePregnancyError(message="No active pregnancy found for this patient")
+    score = await pregnancy_repository.get_latest_risk_score(db, pregnancy.id)
+    if not score:
+        raise NotFoundError(message="No risk score exists yet for this pregnancy")
+    override_payload = {
+        "level": data.level,
+        "reason": data.reason,
+        "overriddenBy": str(clinician_id),
+        "overriddenAt": datetime.now(timezone.utc).isoformat(),
+    }
+    updated = await pregnancy_repository.update_risk_score_override(db, score, override_payload)
+    await db.commit()
+    return updated
