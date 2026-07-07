@@ -17,8 +17,8 @@ from app.schemas.postpartum import (
     FormTemplateRead,
 )
 from app.schemas.pregnancy import VisitRead
-from app.services import postpartum_service
-from app.utils.exceptions import create_success_response, APIResponse
+from app.services import postpartum_service, consent_service
+from app.utils.exceptions import create_success_response, APIResponse, ForbiddenError
 
 router = APIRouter()
 
@@ -377,3 +377,65 @@ async def get_postnatal_clinic_schedule(
 ):
     schedule = await postpartum_service.get_postnatal_clinic_schedule(db, current_user.id)
     return create_success_response(data=schedule)
+
+
+# ================================================================== #
+# Clinician Endpoints (Require Consent)                               #
+# ================================================================== #
+
+async def verify_consent(db: AsyncSession, patient_id: uuid.UUID, facility_id: uuid.UUID):
+    has_consent = await consent_service.has_active_consent(db, patient_id, facility_id)
+    if not has_consent:
+        raise ForbiddenError(message="Patient has not consented to sharing data with this facility")
+
+
+@router.get(
+    "/patients/{patient_id}/babies",
+    response_model=APIResponse[list[BabyProfileRead]],
+    responses=STANDARD_ERROR_RESPONSES,
+    summary="Clinician: Get a patient's baby profiles",
+)
+async def get_patient_babies(
+    patient_id: uuid.UUID,
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.require_clinician),
+    facility_id: uuid.UUID = Depends(deps.get_facility_context),
+):
+    await verify_consent(db, patient_id, facility_id)
+    # Using existing service method, but passing patient_id
+    profiles = await postpartum_service.list_baby_profiles(db, patient_id)
+    return create_success_response(data=profiles)
+
+
+@router.get(
+    "/patients/{patient_id}/epds",
+    response_model=APIResponse[list[EpdsHistoryItem]],
+    responses=STANDARD_ERROR_RESPONSES,
+    summary="Clinician: Get a patient's EPDS history",
+)
+async def get_patient_epds(
+    patient_id: uuid.UUID,
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.require_clinician),
+    facility_id: uuid.UUID = Depends(deps.get_facility_context),
+):
+    await verify_consent(db, patient_id, facility_id)
+    history = await postpartum_service.list_epds_history(db, patient_id)
+    return create_success_response(data=history)
+
+
+@router.get(
+    "/patients/{patient_id}/maternal-checkins",
+    response_model=APIResponse[list[MaternalCheckinRead]],
+    responses=STANDARD_ERROR_RESPONSES,
+    summary="Clinician: Get a patient's maternal check-ins",
+)
+async def get_patient_maternal_checkins(
+    patient_id: uuid.UUID,
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.require_clinician),
+    facility_id: uuid.UUID = Depends(deps.get_facility_context),
+):
+    await verify_consent(db, patient_id, facility_id)
+    checkins = await postpartum_service.list_maternal_checkins(db, patient_id)
+    return create_success_response(data=checkins)

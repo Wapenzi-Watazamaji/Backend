@@ -34,3 +34,14 @@ async def get_my_consents(db: AsyncSession, user_id: uuid.UUID) -> list[Consent]
         .order_by(Consent.granted_at.desc())
     )
     return result.scalars().all()
+
+
+async def has_active_consent(db: AsyncSession, user_id: uuid.UUID, facility_id: uuid.UUID) -> bool:
+    """Check if the user has active consent for the given facility."""
+    stmt = select(Consent).where(
+        Consent.user_id == user_id,
+        Consent.grantee_id == str(facility_id),
+        Consent.active == True
+    )
+    result = await db.execute(stmt)
+    return result.scalar_one_or_none() is not None
