@@ -6,7 +6,7 @@ services:
     env_file:
       - .env
     ports:
-      - "127.0.0.1:8085:8085"   # Nginx proxies to this locally; not exposed to the internet directly
+      - "127.0.0.1:8085:8085"  
     depends_on:
       redis:
         condition: service_healthy
@@ -21,7 +21,6 @@ services:
     container_name: binticare_redis
     restart: unless-stopped
     command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
-    # No host port published — the api container reaches redis over binticare_net only.
     volumes:
       - redis_data:/data
     healthcheck:
