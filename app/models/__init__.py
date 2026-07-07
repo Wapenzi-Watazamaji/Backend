@@ -17,6 +17,5 @@ from .labour import (
     LabourSessionStatus, LabourOutcome, LabourDeliveryType,
     LabourReadingType, AlertType, AlertSeverity,
 )
-from .referral import Referral, ReferralReason, ReferralPriority, ReferralStatus
-from .education import EducationContent, EducationEvent, ContentCategory
+from .referral import Referral, ReferralReason, ReferralStatus
 
