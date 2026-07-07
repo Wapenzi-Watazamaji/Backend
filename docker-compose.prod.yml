@@ -1,0 +1,41 @@
+services:
+  api:
+    image: ${IMAGE}
+    container_name: binticare_api
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "127.0.0.1:8085:8085"   # Nginx proxies to this locally; not exposed to the internet directly
+    depends_on:
+      redis:
+        condition: service_healthy
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+    networks:
+      - binticare_net
+
+  redis:
+    image: redis:7.2-alpine
+    container_name: binticare_redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+    # No host port published — the api container reaches redis over binticare_net only.
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - binticare_net
+
+volumes:
+  redis_data:
+    driver: local
+
+networks:
+  binticare_net:
+    driver: bridge
