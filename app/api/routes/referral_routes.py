@@ -140,3 +140,33 @@ async def get_patient_summary(
 ):
     summary = await referral_service.get_patient_summary(db, referral_id)
     return create_success_response(data=summary)
+
+from app.schemas.referral import ReferralInboxItem
+
+@router.get(
+    "/inbox/incoming",
+    response_model=APIResponse[list[ReferralInboxItem]],
+    responses=STANDARD_ERROR_RESPONSES,
+    summary="Get incoming referrals for the inbox UI"
+)
+async def get_incoming_referrals_inbox(
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.require_clinician),
+    facility_id: uuid.UUID = Depends(deps.get_facility_context)
+):
+    referrals = await referral_service.get_incoming_referrals_inbox(db, facility_id)
+    return create_success_response(data=referrals)
+
+@router.get(
+    "/inbox/outgoing",
+    response_model=APIResponse[list[ReferralInboxItem]],
+    responses=STANDARD_ERROR_RESPONSES,
+    summary="Get outgoing referrals for the inbox UI"
+)
+async def get_outgoing_referrals_inbox(
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.require_clinician),
+    facility_id: uuid.UUID = Depends(deps.get_facility_context)
+):
+    referrals = await referral_service.get_outgoing_referrals_inbox(db, facility_id)
+    return create_success_response(data=referrals)

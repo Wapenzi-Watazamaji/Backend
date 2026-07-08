@@ -162,3 +162,68 @@ async def get_patient_summary(db: AsyncSession, referral_id: uuid.UUID) -> dict:
         "allergies": [],
         "emergencyContact": emergency_contact,
     }
+
+from app.schemas.referral import ReferralInboxItem
+from app.models.facility import Facility
+from sqlalchemy import desc
+
+async def get_incoming_referrals_inbox(db: AsyncSession, facility_id: uuid.UUID) -> list[ReferralInboxItem]:
+    stmt = (
+        select(Referral, User, Profile, Facility)
+        .join(User, User.id == Referral.patient_id)
+        .outerjoin(Profile, Profile.user_id == User.id)
+        .join(Facility, Facility.id == Referral.from_facility_id)
+        .where(
+            Referral.to_facility_id == facility_id,
+            Referral.status == ReferralStatus.PENDING
+        )
+        .order_by(desc(Referral.created_at))
+    )
+    res = await db.execute(stmt)
+    rows = res.all()
+    results = []
+    for ref, user, profile, from_fac in rows:
+        results.append(ReferralInboxItem(
+            id=ref.id,
+            fromFacilityName=from_fac.name,
+            toFacilityName="Current Facility",
+            patientName=getattr(profile, 'full_name', getattr(user, 'phone_number', 'Unknown')),
+            patientAge=32, # Mock
+            pregnancyWeek=38, # Mock
+            reason=ref.notes or ref.reason.value,
+            requestedAt=ref.created_at,
+            isEmergency=ref.is_emergency,
+            status=ref.status.value,
+            estimatedArrivalMinutes=25 if ref.is_emergency else None
+        ))
+    return results
+
+async def get_outgoing_referrals_inbox(db: AsyncSession, facility_id: uuid.UUID) -> list[ReferralInboxItem]:
+    stmt = (
+        select(Referral, User, Profile, Facility)
+        .join(User, User.id == Referral.patient_id)
+        .outerjoin(Profile, Profile.user_id == User.id)
+        .join(Facility, Facility.id == Referral.to_facility_id)
+        .where(
+            Referral.from_facility_id == facility_id
+        )
+        .order_by(desc(Referral.created_at))
+    )
+    res = await db.execute(stmt)
+    rows = res.all()
+    results = []
+    for ref, user, profile, to_fac in rows:
+        results.append(ReferralInboxItem(
+            id=ref.id,
+            fromFacilityName="Current Facility",
+            toFacilityName=to_fac.name,
+            patientName=getattr(profile, 'full_name', getattr(user, 'phone_number', 'Unknown')),
+            patientAge=26, # Mock
+            pregnancyWeek=12, # Mock
+            reason=ref.notes or ref.reason.value,
+            requestedAt=ref.created_at,
+            isEmergency=ref.is_emergency,
+            status=ref.status.value,
+            estimatedArrivalMinutes=None
+        ))
+    return results

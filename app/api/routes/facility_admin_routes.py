@@ -48,3 +48,80 @@ async def bulk_reassign(
 ):
     count = await facility_admin_service.bulk_reassign_patients(db, facility_id, req)
     return create_success_response(data={"status": "success", "reassignedCount": count})
+
+from app.schemas.facility_admin import (
+    FacilityAdminOverview, PatientUnassignedRead, 
+    ClinicianWorkload, StaffMember, StaffInvite
+)
+from typing import List
+
+@router.get(
+    "/overview",
+    response_model=APIResponse[FacilityAdminOverview],
+    responses=STANDARD_ERROR_RESPONSES,
+    summary="Get facility admin overview dashboard stats"
+)
+async def get_overview(
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.require_facility_admin),
+    facility_id: uuid.UUID = Depends(deps.get_facility_context)
+):
+    overview = await facility_admin_service.get_overview(db, facility_id)
+    return create_success_response(data=overview)
+
+@router.get(
+    "/unassigned-patients",
+    response_model=APIResponse[List[PatientUnassignedRead]],
+    responses=STANDARD_ERROR_RESPONSES,
+    summary="List unassigned patients"
+)
+async def get_unassigned_patients(
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.require_facility_admin),
+    facility_id: uuid.UUID = Depends(deps.get_facility_context)
+):
+    patients = await facility_admin_service.get_unassigned_patients(db, facility_id)
+    return create_success_response(data=patients)
+
+@router.get(
+    "/clinician-workloads",
+    response_model=APIResponse[List[ClinicianWorkload]],
+    responses=STANDARD_ERROR_RESPONSES,
+    summary="List clinicians and their workloads"
+)
+async def get_clinician_workloads(
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.require_facility_admin),
+    facility_id: uuid.UUID = Depends(deps.get_facility_context)
+):
+    workloads = await facility_admin_service.get_clinician_workloads(db, facility_id)
+    return create_success_response(data=workloads)
+
+@router.get(
+    "/staff",
+    response_model=APIResponse[List[StaffMember]],
+    responses=STANDARD_ERROR_RESPONSES,
+    summary="List facility staff"
+)
+async def get_staff(
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.require_facility_admin),
+    facility_id: uuid.UUID = Depends(deps.get_facility_context)
+):
+    staff = await facility_admin_service.get_staff(db, facility_id)
+    return create_success_response(data=staff)
+
+@router.post(
+    "/staff/invite",
+    response_model=APIResponse[dict],
+    responses=STANDARD_ERROR_RESPONSES,
+    summary="Invite a staff member"
+)
+async def invite_staff(
+    req: StaffInvite,
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.require_facility_admin),
+    facility_id: uuid.UUID = Depends(deps.get_facility_context)
+):
+    res = await facility_admin_service.invite_staff(db, facility_id, req)
+    return create_success_response(data=res)

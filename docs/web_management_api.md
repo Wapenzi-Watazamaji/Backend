@@ -513,3 +513,176 @@ Lists active postpartum patient caseloads.
   ]
 }
 ```
+
+
+## 6. Facility Admin Extensions
+**Base Path:** `/facility-admin`
+
+### `GET /facility-admin/overview`
+Retrieves top-level metrics for the Facility Admin Dashboard.
+**Response:** `200 OK`
+```json
+{
+  "success": true,
+  "message": "Operation successful",
+  "meta": {},
+  "data": {
+    "totalPatients": 312,
+    "patientsDeltaThisWeek": 14,
+    "unassignedPatientsCount": 7,
+    "activeCliniciansCount": 5,
+    "facilityWideAlertsCount": 5,
+    "thisWeekAtAGlance": {
+      "ancVisitsCompleted": 48,
+      "ancVisitsScheduled": 52,
+      "deliveries": 9,
+      "referralsAccepted": 4,
+      "referralsSentOut": 3,
+      "postnatalFollowUpsDue": 6
+    }
+  }
+}
+```
+
+### `GET /facility-admin/unassigned-patients`
+Lists patients belonging to the facility who are not yet assigned a personal doctor.
+**Response:** `200 OK`
+```json
+{
+  "success": true,
+  "message": "Operation successful",
+  "meta": {},
+  "data": [
+    {
+      "patientUserId": "123e4567-e89b-12d3-a456-426614174000",
+      "fullName": "Carol Wambui",
+      "stage": "PREGNANT",
+      "stageDetail": "Awaiting assessment",
+      "registeredAt": "2026-07-08T10:00:00Z",
+      "isReferralFromOtherFacility": false,
+      "referralFromFacilityName": null
+    }
+  ]
+}
+```
+
+### `GET /facility-admin/clinician-workloads`
+Lists active clinicians, their specialties, current assigned patients count, and max capacity.
+**Response:** `200 OK`
+```json
+{
+  "success": true,
+  "message": "Operation successful",
+  "meta": {},
+  "data": [
+    {
+      "clinicianId": "123e4567-e89b-12d3-a456-426614174001",
+      "clinicianName": "Dr. Achieng Otieno",
+      "specialty": "Obstetrics",
+      "assignedPatientCount": 28,
+      "maxCapacity": 40
+    }
+  ]
+}
+```
+
+### `GET /facility-admin/staff`
+Detailed list of staff members in the facility.
+**Response:** `200 OK`
+```json
+{
+  "success": true,
+  "message": "Operation successful",
+  "meta": {},
+  "data": [
+    {
+      "userId": "123e4567-e89b-12d3-a456-426614174001",
+      "name": "Dr. Achieng Otieno",
+      "role": "CLINICIAN",
+      "specialty": "Obstetrics",
+      "assignedPatients": 28,
+      "status": "Active",
+      "email": null
+    }
+  ]
+}
+```
+
+### `POST /facility-admin/staff/invite`
+Invites a new staff member via email.
+**Request Body:**
+```json
+{
+  "email": "jane.muthoni@kilificountyhospital.go.ke",
+  "role": "CLINICIAN",
+  "specialty": "Midwifery"
+}
+```
+**Response:** `200 OK`
+```json
+{
+  "success": true,
+  "message": "Operation successful",
+  "meta": {},
+  "data": {
+    "status": "success",
+    "message": "Invited jane.muthoni@kilificountyhospital.go.ke successfully."
+  }
+}
+```
+
+
+## 7. Referrals Inbox Extensions
+**Base Path:** `/referrals`
+
+### `GET /referrals/inbox/incoming`
+Lists incoming referrals mapped to the UI inbox view.
+**Response:** `200 OK`
+```json
+{
+  "success": true,
+  "message": "Operation successful",
+  "meta": {},
+  "data": [
+    {
+      "id": "123e4567-e89b-12d3-a456-426614174003",
+      "fromFacilityName": "Malindi Sub County Hospital",
+      "toFacilityName": "Current Facility",
+      "patientName": "Patience Moraa",
+      "patientAge": 32,
+      "pregnancyWeek": 38,
+      "reason": "Suspected preeclampsia, BP 158/102 on last reading.",
+      "requestedAt": "2026-07-08T15:45:00Z",
+      "isEmergency": true,
+      "status": "PENDING",
+      "estimatedArrivalMinutes": 25
+    }
+  ]
+}
+```
+
+### `GET /referrals/inbox/outgoing`
+Lists outgoing referrals from the facility.
+**Response:** `200 OK`
+```json
+{
+  "success": true,
+  "message": "Operation successful",
+  "meta": {},
+  "data": [
+    {
+      "id": "123e4567-e89b-12d3-a456-426614174004",
+      "fromFacilityName": "Current Facility",
+      "toFacilityName": "Mombasa General Hospital",
+      "patientName": "Lilian Auma",
+      "patientAge": 26,
+      "pregnancyWeek": 12,
+      "reason": "Patient relocating.",
+      "requestedAt": "2026-07-08T13:45:00Z",
+      "isEmergency": false,
+      "status": "PENDING",
+      "estimatedArrivalMinutes": null
+    }
+  ]
+}
+```

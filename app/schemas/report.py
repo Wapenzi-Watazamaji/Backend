@@ -26,10 +26,10 @@ class ReportRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 class PopulationSnapshot(BaseModel):
-    totalPregnancies: int
-    highRiskCount: int
-    mediumRiskCount: int
-    lowRiskCount: int
-    trimesterBreakdown: dict[str, int]
-    postpartumCount: int
-    snapshotDate: date
+    facilityId: uuid.UUID
+    periodStart: date
+    periodEnd: date
+    ancAttendanceRate: list[dict]
+    topRiskFlags: list[dict]
+    referralVolumeByMonth: list[dict]
+    totals: dict

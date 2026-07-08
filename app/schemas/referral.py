@@ -46,3 +46,16 @@ class ReferralPatientSummary(BaseModel):
     recentVitals: Optional[dict] = None
     allergies: list[str]
     emergencyContact: Optional[dict] = None
+
+class ReferralInboxItem(BaseModel):
+    id: uuid.UUID
+    fromFacilityName: str
+    toFacilityName: str
+    patientName: str
+    patientAge: Optional[int] = None
+    pregnancyWeek: Optional[int] = None
+    reason: str
+    requestedAt: datetime
+    isEmergency: bool
+    status: str
+    estimatedArrivalMinutes: Optional[int] = None

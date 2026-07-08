@@ -42,3 +42,40 @@ class FormTemplateCreateOverride(BaseModel):
     facilityId: uuid.UUID
     basedOnTemplateId: uuid.UUID
     additionalFields: list[FormField]
+
+class FacilityAdminOverviewWeekAtAGlance(BaseModel):
+    ancVisitsCompleted: int
+    ancVisitsScheduled: int
+    deliveries: int
+    referralsAccepted: int
+    referralsSentOut: int
+    postnatalFollowUpsDue: int
+
+class FacilityAdminOverview(BaseModel):
+    totalPatients: int
+    patientsDeltaThisWeek: int
+    unassignedPatientsCount: int
+    activeCliniciansCount: int
+    facilityWideAlertsCount: int
+    thisWeekAtAGlance: FacilityAdminOverviewWeekAtAGlance
+
+class ClinicianWorkload(BaseModel):
+    clinicianId: uuid.UUID
+    clinicianName: str
+    specialty: Optional[str] = None
+    assignedPatientCount: int
+    maxCapacity: int
+
+class StaffMember(BaseModel):
+    userId: Optional[uuid.UUID] = None
+    name: str
+    role: str
+    specialty: Optional[str] = None
+    assignedPatients: int
+    status: str
+    email: Optional[str] = None
+
+class StaffInvite(BaseModel):
+    email: str
+    role: str
+    specialty: Optional[str] = None
