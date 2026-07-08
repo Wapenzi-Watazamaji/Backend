@@ -68,6 +68,6 @@ dmypy.json
 # OS
 .DS_Store
 Thumbs.db
-mobilebackend.md 
-webbackend.md
+MOBILE.md
+WEB.md
 docs/phase2_architecture_plan.md

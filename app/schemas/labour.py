@@ -32,10 +32,34 @@ class LabourSessionRead(BaseModel):
     outcome: Optional[LabourOutcome] = None
     delivery_type: Optional[LabourDeliveryType] = None
     closed_at: Optional[datetime] = None
+    room: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class LabourSessionRoomUpdate(BaseModel):
+    room: str
+
+
+class ActiveLabourSessionRead(BaseModel):
+    id: uuid.UUID
+    patientName: str
+    room: Optional[str] = None
+    hoursInLabour: float
+    dilationCm: Optional[float] = None
+    fhr: Optional[float] = None
+    status: str
+    assignedClinicianName: Optional[str] = None
+
+
+class LabourAlertsSummary(BaseModel):
+    activeLabourCount: int
+    criticalAlertCount: int
+    watchAlertCount: int
+    recentAlerts: list['LabourAlertRead']
+
 
 
 class DilationReadingCreate(BaseModel):

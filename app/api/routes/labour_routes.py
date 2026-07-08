@@ -233,3 +233,55 @@ async def create_resuscitation_log(
 ):
     log = await labour_service.create_resuscitation_log(db, session_id, data)
     return create_success_response(data=log)
+
+from app.schemas.labour import ActiveLabourSessionRead, LabourAlertsSummary, LabourSessionRoomUpdate
+from app.services import labour_web_service
+from app.models.user import UserRole
+from fastapi import HTTPException
+
+@router.get(
+    "/active",
+    response_model=APIResponse[list[ActiveLabourSessionRead]],
+    responses=STANDARD_ERROR_RESPONSES,
+    summary="List active labour sessions for a facility",
+)
+async def get_active_sessions_feed(
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.require_clinician),
+    facility_id: uuid.UUID = Depends(deps.get_facility_context)
+):
+    sessions = await labour_web_service.get_active_sessions(db, facility_id)
+    return create_success_response(data=sessions)
+
+
+@router.get(
+    "/alerts-summary",
+    response_model=APIResponse[LabourAlertsSummary],
+    responses=STANDARD_ERROR_RESPONSES,
+    summary="Get alerts summary for a facility",
+)
+async def get_facility_alerts_summary(
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.require_clinician),
+    facility_id: uuid.UUID = Depends(deps.get_facility_context)
+):
+    summary = await labour_web_service.get_alerts_summary(db, facility_id)
+    return create_success_response(data=summary)
+
+
+@router.put(
+    "/sessions/{session_id}/room",
+    response_model=APIResponse[dict],
+    responses=STANDARD_ERROR_RESPONSES,
+    summary="Update room assignment for a session",
+)
+async def update_session_room(
+    session_id: uuid.UUID,
+    data: LabourSessionRoomUpdate,
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.require_clinician),
+):
+    success = await labour_web_service.update_room_assignment(db, session_id, data)
+    if not success:
+        raise HTTPException(status_code=404, detail="Session not found")
+    return create_success_response(data={"status": "success"})

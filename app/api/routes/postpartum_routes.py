@@ -439,3 +439,35 @@ async def get_patient_maternal_checkins(
     await verify_consent(db, patient_id, facility_id)
     checkins = await postpartum_service.list_maternal_checkins(db, patient_id)
     return create_success_response(data=checkins)
+
+from app.schemas.postpartum_web import PostpartumAlertsSummary, PostpartumPatientList
+from app.services import postpartum_web_service
+
+@router.get(
+    "/postpartum-alerts/summary",
+    response_model=APIResponse[PostpartumAlertsSummary],
+    responses=STANDARD_ERROR_RESPONSES,
+    summary="Get postpartum alerts summary for a facility",
+)
+async def get_facility_postpartum_alerts_summary(
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.require_clinician),
+    facility_id: uuid.UUID = Depends(deps.get_facility_context)
+):
+    summary = await postpartum_web_service.get_postpartum_alerts_summary(db, facility_id)
+    return create_success_response(data=summary)
+
+
+@router.get(
+    "/postpartum-patients",
+    response_model=APIResponse[list[PostpartumPatientList]],
+    responses=STANDARD_ERROR_RESPONSES,
+    summary="List active postpartum patients for a facility",
+)
+async def get_facility_postpartum_patients(
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.require_clinician),
+    facility_id: uuid.UUID = Depends(deps.get_facility_context)
+):
+    patients = await postpartum_web_service.get_active_postpartum_patients(db, facility_id)
+    return create_success_response(data=patients)

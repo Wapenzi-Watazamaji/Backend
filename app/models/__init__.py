@@ -18,4 +18,8 @@ from .labour import (
     LabourReadingType, AlertType, AlertSeverity,
 )
 from .referral import Referral, ReferralReason, ReferralStatus
+from .report import Report, ReportType, ReportFormat, ReportStatus
+from .education import EducationContent, EducationEvent, ContentCategory
+
+
 
