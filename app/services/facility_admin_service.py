@@ -1,9 +1,7 @@
 import uuid
 from typing import Optional
-
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update
-
+from sqlalchemy import select, update, func
 from app.models.user import User, UserRole
 from app.models.profile import Profile
 from app.schemas.facility_admin import BulkAssignRequest
@@ -51,7 +49,7 @@ from app.schemas.facility_admin import (
     FacilityAdminOverview, FacilityAdminOverviewWeekAtAGlance,
     PatientUnassignedRead, ClinicianWorkload, StaffMember, StaffInvite
 )
-from app.models.staff import StaffFacility
+from app.models.staff import StaffMember as StaffMemberModel
 from datetime import datetime, timedelta
 
 async def get_overview(db: AsyncSession, facility_id: uuid.UUID) -> FacilityAdminOverview:
