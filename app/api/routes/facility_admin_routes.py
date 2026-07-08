@@ -1,8 +1,7 @@
 import uuid
-
+from typing import Optional, List
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
-
 from app.api import deps
 from app.models.user import User
 from app.schemas.facility_admin import BulkAssignRequest
@@ -112,16 +111,34 @@ async def get_staff(
     return create_success_response(data=staff)
 
 @router.post(
-    "/staff/invite",
+    "/invite-staff",
     response_model=APIResponse[dict],
     responses=STANDARD_ERROR_RESPONSES,
-    summary="Invite a staff member"
+    summary="Invite new staff member"
 )
 async def invite_staff(
-    req: StaffInvite,
+    invite: StaffInvite,
     db: AsyncSession = Depends(deps.get_db),
     current_user: User = Depends(deps.require_facility_admin),
     facility_id: uuid.UUID = Depends(deps.get_facility_context)
 ):
-    res = await facility_admin_service.invite_staff(db, facility_id, req)
+    res = await facility_admin_service.invite_staff(db, facility_id, invite)
     return create_success_response(data=res)
+
+from app.schemas.dashboard import PatientDirectoryItem
+
+@router.get(
+    "/patients",
+    response_model=APIResponse[List[PatientDirectoryItem]],
+    responses=STANDARD_ERROR_RESPONSES,
+    summary="Get facility wide patient directory"
+)
+async def get_patients(
+    search: Optional[str] = None,
+    tab: Optional[str] = None,
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.require_facility_admin),
+    facility_id: uuid.UUID = Depends(deps.get_facility_context)
+):
+    patients = await facility_admin_service.get_facility_patients(db, facility_id, search, tab)
+    return create_success_response(data=patients)

@@ -2,7 +2,7 @@ from fastapi import APIRouter
 from app.api.routes import (
     auth_routes, profile_routes, facility_routes, cycle_routes, 
     referral_routes, emergency_routes, pregnancy_routes, postpartum_routes, 
-    education_routes, labour_routes, dashboard_routes, report_routes, 
+    education_routes, labour_routes, clinician_dashboard_routes, report_routes, 
     facility_admin_routes
 )
 
@@ -19,6 +19,6 @@ api_router.include_router(referral_routes.router, prefix="/referrals", tags=["Re
 api_router.include_router(emergency_routes.router, tags=["Emergencies"])
 api_router.include_router(education_routes.router)
 
-api_router.include_router(dashboard_routes.router, prefix="/dashboard", tags=["Web Dashboard"])
+api_router.include_router(clinician_dashboard_routes.router, prefix="/dashboard", tags=["Web Dashboard"])
 api_router.include_router(report_routes.router, prefix="/reports", tags=["Reports"])
 api_router.include_router(facility_admin_routes.router, prefix="/facility-admin", tags=["Facility Admin"])

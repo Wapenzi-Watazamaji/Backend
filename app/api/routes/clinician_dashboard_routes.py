@@ -11,9 +11,10 @@ from app.schemas.dashboard import (
     DashboardSummary,
     DashboardAlert,
     PatientDirectoryItem,
-    TimelineItem
+    TimelineItem,
+    AncVisitToday
 )
-from app.services import dashboard_service
+from app.services import clinician_dashboard_service
 from app.utils.exceptions import create_success_response, APIResponse
 
 router = APIRouter()
@@ -37,7 +38,7 @@ async def get_summary(
     current_user: User = Depends(deps.require_clinician),
     facility_id: uuid.UUID = Depends(deps.get_facility_context)
 ):
-    summary = await dashboard_service.get_dashboard_summary(db, facility_id, current_user.id, target_date)
+    summary = await clinician_dashboard_service.get_dashboard_summary(db, facility_id, current_user.id, target_date)
     return create_success_response(data=summary)
 
 
@@ -52,7 +53,7 @@ async def get_alerts(
     current_user: User = Depends(deps.require_clinician),
     facility_id: uuid.UUID = Depends(deps.get_facility_context)
 ):
-    alerts = await dashboard_service.get_unified_alerts(db, facility_id)
+    alerts = await clinician_dashboard_service.get_unified_alerts(db, facility_id, current_user.id)
     return create_success_response(data=alerts)
 
 
@@ -64,11 +65,12 @@ async def get_alerts(
 )
 async def get_directory(
     search: Optional[str] = None,
+    tab: Optional[str] = None,
     db: AsyncSession = Depends(deps.get_db),
     current_user: User = Depends(deps.require_clinician),
     facility_id: uuid.UUID = Depends(deps.get_facility_context)
 ):
-    directory = await dashboard_service.get_patient_directory(db, facility_id, search)
+    directory = await clinician_dashboard_service.get_patient_directory(db, facility_id, current_user.id, search, tab)
     return create_success_response(data=directory)
 
 
@@ -83,5 +85,21 @@ async def get_timeline(
     current_user: User = Depends(deps.require_clinician),
     facility_id: uuid.UUID = Depends(deps.get_facility_context)
 ):
-    timeline = await dashboard_service.get_global_timeline(db, facility_id)
+    timeline = await clinician_dashboard_service.get_clinician_timeline(db, facility_id, current_user.id)
     return create_success_response(data=timeline)
+
+
+@router.get(
+    "/anc-visits-today", 
+    response_model=APIResponse[list[AncVisitToday]],
+    responses=STANDARD_ERROR_RESPONSES,
+    summary="Get today's ANC visits schedule"
+)
+async def get_anc_visits_today(
+    target_date: Optional[date] = None,
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.require_clinician),
+    facility_id: uuid.UUID = Depends(deps.get_facility_context)
+):
+    visits = await clinician_dashboard_service.get_anc_visits_today(db, facility_id, current_user.id, target_date)
+    return create_success_response(data=visits)
