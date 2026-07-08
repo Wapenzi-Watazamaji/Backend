@@ -1,6 +1,6 @@
 import uuid
 from datetime import date
-from typing import Optional
+from typing import Optional, List
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -103,3 +103,20 @@ async def get_anc_visits_today(
 ):
     visits = await clinician_dashboard_service.get_anc_visits_today(db, facility_id, current_user.id, target_date)
     return create_success_response(data=visits)
+
+
+@router.get(
+    "/patients",
+    response_model=APIResponse[List[PatientDirectoryItem]],
+    responses=STANDARD_ERROR_RESPONSES,
+    summary="Get patients assigned to the authenticated clinician"
+)
+async def get_my_patients(
+    search: Optional[str] = None,
+    tab: Optional[str] = None,
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.require_clinician),
+    facility_id: uuid.UUID = Depends(deps.get_facility_context)
+):
+    patients = await clinician_dashboard_service.get_clinician_patients(db, facility_id, current_user.id, search, tab)
+    return create_success_response(data=patients)
