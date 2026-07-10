@@ -1,5 +1,5 @@
 import uuid
-from fastapi import HTTPException
+from app.utils.exceptions import NotFoundError, ForbiddenError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -11,7 +11,7 @@ async def create_emergency_request(db: AsyncSession, patient_id: uuid.UUID, req:
     # Ensure facility exists
     facility = await db.get(Facility, req.facility_id)
     if not facility:
-        raise HTTPException(status_code=404, detail="Facility not found")
+        raise NotFoundError(message="Facility not found")
         
     emergency = EmergencyRequest(
         patient_id=patient_id,
@@ -41,11 +41,11 @@ async def get_patient_emergencies(db: AsyncSession, patient_id: uuid.UUID) -> li
 async def update_emergency_status(db: AsyncSession, emergency_id: uuid.UUID, facility_id: uuid.UUID, req: EmergencyRequestUpdate) -> EmergencyRequest:
     emergency = await db.get(EmergencyRequest, emergency_id)
     if not emergency:
-        raise HTTPException(status_code=404, detail="Emergency request not found")
+        raise NotFoundError(message="Emergency request not found")
         
     # Security: only the receiving facility can update status
     if emergency.facility_id != facility_id:
-        raise HTTPException(status_code=403, detail="Only the destination facility can update this emergency")
+        raise ForbiddenError(message="Only the destination facility can update this emergency")
         
     emergency.status = req.status
         

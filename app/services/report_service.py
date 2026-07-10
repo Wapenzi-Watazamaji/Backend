@@ -19,7 +19,7 @@ async def get_population_snapshot(db: AsyncSession, facility_id: uuid.UUID) -> P
     ).join(
         PregnancyRecord, PregnancyRecord.user_id == User.id
     ).where(
-        User.role == UserRole.MOTHER,
+        User.role == UserRole.USER,
         Profile.preferred_facility_id == facility_id,
         PregnancyRecord.status == "ACTIVE"
     )

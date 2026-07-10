@@ -153,3 +153,7 @@ class RateLimitedError(BaseAppException):
 class InternalServerError(BaseAppException):
     def __init__(self, message: str, meta: Optional[Dict[str, Any]] = None):
         super().__init__(status_code=500, code="INTERNAL_ERROR", message=message, meta=meta)
+
+class DuplicateResourceError(BaseAppException):
+    def __init__(self, message: str, meta: Optional[Dict[str, Any]] = None):
+        super().__init__(status_code=409, code="DUPLICATE_RESOURCE", message=message, meta=meta)

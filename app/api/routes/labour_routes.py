@@ -1,3 +1,4 @@
+from app.utils.exceptions import NotFoundError
 import uuid
 
 from fastapi import APIRouter, Depends, status
@@ -14,7 +15,7 @@ from app.schemas.labour import (
     ResuscitationLogCreate, ResuscitationLogRead,
 )
 from app.services import labour_service
-from app.utils.exceptions import create_success_response, APIResponse
+from app.utils.exceptions import create_success_response, APIResponse, NotFoundError
 
 router = APIRouter()
 
@@ -237,7 +238,7 @@ async def create_resuscitation_log(
 from app.schemas.labour import ActiveLabourSessionRead, LabourAlertsSummary, LabourSessionRoomUpdate
 from app.services import labour_web_service
 from app.models.user import UserRole
-from fastapi import HTTPException
+
 
 @router.get(
     "/active",
@@ -284,5 +285,5 @@ async def update_session_room(
 ):
     success = await labour_web_service.update_room_assignment(db, session_id, data)
     if not success:
-        raise HTTPException(status_code=404, detail="Session not found")
+        raise NotFoundError(message="Session not found")
     return create_success_response(data={"status": "success"})

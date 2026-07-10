@@ -169,6 +169,10 @@ async def create_baby_profile(db: AsyncSession, user_id: uuid.UUID, data) -> Bab
 
     # Auto-generate vaccination schedule
     await _generate_vaccination_schedule(db, profile.id, data.dateOfBirth)
+    
+    # Auto-generate PNC visits if linked to a pregnancy
+    if data.pregnancyId:
+        await _generate_postnatal_visits(db, data.pregnancyId, data.dateOfBirth)
 
     await db.commit()
     await db.refresh(profile)

@@ -183,7 +183,7 @@ async def get_unassigned_patients(db: AsyncSession, facility_id: uuid.UUID) -> l
     stmt = select(User, Profile).join(Profile, Profile.user_id == User.id).where(
         Profile.preferred_facility_id == facility_id,
         Profile.personal_doctor_id.is_(None),
-        User.role == UserRole.MOTHER
+        User.role == UserRole.USER
     )
     res = await db.execute(stmt)
     rows = res.all()
@@ -396,7 +396,7 @@ async def get_facility_patients(db: AsyncSession, facility_id: uuid.UUID, search
     ).outerjoin(
         clinician_alias, clinician_alias.id == Profile.personal_doctor_id
     ).where(
-        User.role == UserRole.MOTHER,
+        User.role == UserRole.USER,
         Profile.preferred_facility_id == facility_id
     )
     

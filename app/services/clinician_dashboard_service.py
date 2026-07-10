@@ -35,7 +35,7 @@ async def get_dashboard_summary(
         
     # assignedPatientCount
     stmt = select(func.count(User.id)).join(Profile, Profile.user_id == User.id).where(
-        User.role == UserRole.MOTHER,
+        User.role == UserRole.USER,
         Profile.personal_doctor_id == clinician_id
     )
     assigned_patient_count = await db.scalar(stmt) or 0
@@ -43,7 +43,7 @@ async def get_dashboard_summary(
     # assignedPatientCountDeltaThisWeek
     seven_days_ago = target_date - timedelta(days=7)
     stmt_delta = select(func.count(User.id)).join(Profile, Profile.user_id == User.id).where(
-        User.role == UserRole.MOTHER,
+        User.role == UserRole.USER,
         Profile.personal_doctor_id == clinician_id,
         func.date(User.created_at) >= seven_days_ago
     )
@@ -236,7 +236,7 @@ async def get_patient_directory(db: AsyncSession, facility_id: uuid.UUID, clinic
     ).outerjoin(
         clinician_alias, clinician_alias.id == Profile.personal_doctor_id
     ).where(
-        User.role == UserRole.MOTHER,
+        User.role == UserRole.USER,
         Profile.preferred_facility_id == facility_id
     )
     
@@ -318,7 +318,7 @@ async def get_clinician_patients(
     ).outerjoin(
         clinician_alias, clinician_alias.id == Profile.personal_doctor_id
     ).where(
-        User.role == UserRole.MOTHER,
+        User.role == UserRole.USER,
         Profile.preferred_facility_id == facility_id,
         Profile.personal_doctor_id == clinician_id  # always enforced
     )

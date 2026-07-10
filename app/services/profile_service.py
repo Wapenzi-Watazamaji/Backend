@@ -54,7 +54,7 @@ def _flatten_emergency_contact(data: dict) -> dict:
 async def update_my_profile(db: AsyncSession, user: User, profile_in: ProfileUpdate) -> ProfileRead:
     profile = await profile_repository.get_by_user_id(db, user.id)
     if not profile:
-        profile = await profile_repository.create(db, user.id)
+        raise NotFoundError(message="Profile not found. Please create a profile first.")
 
     update_data = profile_in.model_dump(exclude_unset=True)
     

@@ -44,7 +44,10 @@ class ReferralPatientSummary(BaseModel):
     activeRiskFlags: list[str]
     reasonForVisit: str
     recentVitals: Optional[dict] = None
+    bloodType: Optional[str] = None
+    rhFactor: Optional[str] = None
     allergies: list[str]
+    chronicConditions: Optional[list[str]] = None
     emergencyContact: Optional[dict] = None
 
 class ReferralInboxItem(BaseModel):

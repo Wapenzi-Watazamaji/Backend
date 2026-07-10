@@ -13,6 +13,10 @@ from .pregnancy import (
 from .postpartum import BabyProfile, EpdsScreening, BabyGender, EpdsRiskLevel
 
 from .emergency import EmergencyRequest, EmergencyStatus
+
+from .medical_history import (
+    MedicalHistoryRecord, MedicalHistoryCustomField, FieldType
+)
 from .labour import (
     LabourSession, LabourReading, LabourAlert, ResuscitationLog,
     LabourSessionStatus, LabourOutcome, LabourDeliveryType,

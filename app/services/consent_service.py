@@ -1,5 +1,5 @@
 import uuid
-from fastapi import HTTPException
+from app.utils.exceptions import NotFoundError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 
@@ -18,7 +18,7 @@ async def revoke_consent(db: AsyncSession, user_id: uuid.UUID, grantee_id: str) 
     consent = result.scalar_one_or_none()
     
     if not consent:
-        raise HTTPException(status_code=404, detail="Active consent not found for this facility")
+        raise NotFoundError(message="Active consent not found for this facility")
         
     consent.active = False
     consent.revoked_at = func.now()

@@ -1,14 +1,14 @@
 import uuid
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api import deps
 from app.models.user import User
 from app.schemas.report import ReportCreate, ReportRead, PopulationSnapshot
 from app.services import report_service
-from app.utils.exceptions import create_success_response, APIResponse
+from app.utils.exceptions import create_success_response, APIResponse, NotFoundError
 
 router = APIRouter()
 
@@ -80,5 +80,5 @@ async def download_report(
 ):
     url = await report_service.download_report(db, report_id)
     if not url:
-        raise HTTPException(status_code=404, detail="Report not found or not ready")
+        raise NotFoundError(message="Report not found or not ready")
     return create_success_response(data={"downloadUrl": url})
