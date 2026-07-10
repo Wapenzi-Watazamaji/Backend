@@ -25,6 +25,8 @@ This is an atomic operation that:
     "address": "Argwings Kodhek Rd",
     "phone_number": "+254700000001",
     "email": "info@nairobihospital.org",
+    "latitude": -1.2921,
+    "longitude": 36.8219,
     "services_offered": ["ANTENATAL_CARE", "DELIVERY"],
     "readiness": {
       "bloodBankStocked": true,
@@ -173,49 +175,7 @@ Update a facility's details or readiness metrics.
 
 **Response `200 OK`** — Updated `FacilityRead` object.
 
----
 
-## POST `/staff`
-
-Add a new staff member (CLINICIAN or FACILITY_ADMIN) to the facility.
-
-**Authentication:** 
-- 🔒 `Authorization: Bearer <access_token>`
-- 🔑 Required Role: `FACILITY_ADMIN`
-- 🏢 Header: `X-Facility-Context: <facility_id>`
-
-**Request Body**
-```json
-{
-  "phone_number": "+254711222333",
-  "role": "CLINICIAN",
-  "specialty": "Pediatrics"
-}
-```
-
-**Response `201 Created`**
-```json
-{
-  "success": true,
-  "message": "Staff member added successfully",
-  "data": {
-    "id": "staff-uuid",
-    "facility_id": "fac-uuid",
-    "user_id": "user-uuid",
-    "role": "CLINICIAN",
-    "specialty": "Pediatrics",
-    "assigned_patient_count": 0,
-    "status": "INVITE_PENDING",
-    "invited_at": "2026-07-01T12:00:00Z",
-    "joined_at": null
-  },
-  "meta": {}
-}
-```
-
-*Note: If the user doesn't exist on the platform yet, `user_id` will be null and the frontend should inform the user that an SMS invite was sent.*
-
----
 
 ## GET `/staff`
 

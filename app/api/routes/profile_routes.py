@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_current_user, get_db_dep as get_db
 from app.models.user import User
 from app.schemas.profile import ProfileRead, ProfileCreate, ProfileUpdate, PersonalDoctorRequest
+from app.schemas.qr import QRPublicProfileRead
 from app.services import profile_service
 from app.utils.exceptions import APIResponse, create_success_response
 
@@ -55,6 +56,19 @@ async def refresh_qr_token(
 ):
     data = await profile_service.get_or_refresh_qr_token(db, current_user, refresh=True)
     return create_success_response(message="QR passport token refreshed successfully", data=data)
+
+
+@router.get("/qr/scan/{token}", response_model=APIResponse[QRPublicProfileRead])
+async def scan_qr_passport(
+    token: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Public endpoint to scan a QR token and retrieve the user's base profile, 
+    medical history, and active pregnancy.
+    """
+    data = await profile_service.get_public_profile_by_qr(db, token)
+    return create_success_response(message="QR Passport verified", data=data)
 
 
 @router.post("/me/personal-doctor-request", response_model=APIResponse[ProfileRead])

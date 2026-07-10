@@ -295,17 +295,19 @@ Returns all users with role `CLINICIAN` or `FACILITY_ADMIN` at this facility.
 
 ---
 
-### 8. `POST /facility-admin/invite-staff`
-**Invite a new staff member**
+### 8. `POST /facility-admin/register-staff`
+**Manually register a new staff member**
 
-Sends an invitation to a new staff member to join the facility.
+Manually creates an account and assigns it to the facility.
 
 **Role required:** `FACILITY_ADMIN`
 
 #### Request Body
 ```json
 {
-  "email": "doctor.jane@example.com",
+  "fullName": "Dr. Jane Doe",
+  "phoneNumber": "+254711122233",
+  "password": "SecurePassword123!",
   "role": "CLINICIAN",
   "specialty": "Midwifery"
 }
@@ -313,7 +315,9 @@ Sends an invitation to a new staff member to join the facility.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `email` | `string` | ✅ Yes | Email address to send the invitation to |
+| `fullName` | `string` | ✅ Yes | Full name of the staff member |
+| `phoneNumber` | `string` | ✅ Yes | Phone number |
+| `password` | `string` | ✅ Yes | Initial password |
 | `role` | `string` | ✅ Yes | One of: `CLINICIAN`, `FACILITY_ADMIN` |
 | `specialty` | `string` | No | Clinical specialty (for clinicians) |
 
@@ -323,7 +327,7 @@ Sends an invitation to a new staff member to join the facility.
   "success": true,
   "data": {
     "status": "success",
-    "message": "Invited doctor.jane@example.com successfully."
+    "message": "Staff member registered successfully."
   }
 }
 ```

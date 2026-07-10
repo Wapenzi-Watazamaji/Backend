@@ -39,40 +39,7 @@ async def get_cycle_entry_form_template(
         raise NotFoundError(message="No active form template found for CYCLE_ENTRY")
     return create_success_response(data=template)
 
-@router.post("/form-templates", response_model=APIResponse[FormTemplateRead], status_code=status.HTTP_201_CREATED, responses=STANDARD_ERROR_RESPONSES)
-async def create_form_template(
-    template_in: FormTemplateCreate,
-    requester_facility_id: uuid.UUID = Depends(deps.get_facility_context),
-    current_user: User = Depends(deps.require_facility_admin),
-    db: AsyncSession = Depends(deps.get_db),
-):
-    template_data = template_in.model_dump()
-    template_data["facility_id"] = requester_facility_id
-    
-    # Deactivate older versions for this facility and context if needed
-    # Or just let them coexist. For simplicity, just create.
-    template = await cycle_repository.create_form_template(db, template_data)
-    return create_success_response(data=template, message="Form template created successfully")
 
-
-@router.put("/form-templates/{template_id}", response_model=APIResponse[FormTemplateRead], responses=STANDARD_ERROR_RESPONSES)
-async def update_form_template(
-    template_id: uuid.UUID,
-    template_in: FormTemplateUpdate,
-    requester_facility_id: uuid.UUID = Depends(deps.get_facility_context),
-    current_user: User = Depends(deps.require_facility_admin),
-    db: AsyncSession = Depends(deps.get_db),
-):
-    template = await cycle_repository.get_form_template_by_id(db, template_id)
-    if not template:
-        raise NotFoundError(message="Form template not found")
-        
-    if template.facility_id != requester_facility_id:
-        raise ForbiddenError(message="You can only update form templates for your own facility")
-        
-    update_data = template_in.model_dump(exclude_unset=True)
-    updated_template = await cycle_repository.update_form_template(db, template, update_data)
-    return create_success_response(data=updated_template, message="Form template updated successfully")
 
 
 @router.post("/entries", response_model=APIResponse[CycleEntryRead], status_code=status.HTTP_201_CREATED, responses=STANDARD_ERROR_RESPONSES)

@@ -108,41 +108,6 @@ async def get_staff_memberships(db: AsyncSession, user_id: uuid.UUID) -> list[St
     ]
 
 
-async def add_staff_member(db: AsyncSession, facility_id: uuid.UUID, req: AddStaffRequest) -> StaffMemberRead:
-    facility = await facility_repository.get_by_id(db, facility_id)
-    if not facility:
-        raise NotFoundError(message="Facility not found")
-
-    from app.repositories import staff_repository
-    
-    # See if the user exists
-    user = await user_repository.get_by_phone_number(db, req.phone_number)
-    
-    # Check if they are already staff here
-    if user:
-        existing_staff = await staff_repository.get_by_user_and_facility(db, user.id, facility_id)
-        if existing_staff:
-            raise ValidationError(
-                message="This user is already a staff member at this facility",
-                fields={"phone_number": "Already a staff member"}
-            )
-            
-    # Create staff record
-    # If user doesn't exist yet, user_id will be None. The frontend or SMS system can invite them to sign up.
-    staff_data = {
-        "facility_id": facility_id,
-        "user_id": user.id if user else None,
-        "role": req.role,
-        "specialty": req.specialty,
-        "status": StaffStatus.ACTIVE if user else StaffStatus.INVITE_PENDING,
-        "joined_at": datetime.now(timezone.utc) if user else None,
-        "invited_at": datetime.now(timezone.utc)
-    }
-    
-    staff = await staff_repository.create(db, staff_data)
-    
-    from app.schemas.facility import StaffMemberRead
-    return StaffMemberRead.model_validate(staff)
 
 
 async def get_facility_staff(db: AsyncSession, facility_id: uuid.UUID) -> list[StaffMemberRead]:
