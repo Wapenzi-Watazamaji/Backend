@@ -1,9 +1,12 @@
-from fastapi import APIRouter, Depends, status
+import uuid
+from typing import Optional
+from fastapi import APIRouter, Depends, Header, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, get_db_dep as get_db
 from app.models.user import User
 from app.schemas.user import UserCreate, UserRead, UserLogin, Token, RefreshTokenRequest, UserCreateSmsOnly
+from app.schemas.dashboard import LandingSummary
 from app.utils.exceptions import create_success_response, APIResponse
 from app.services import user_service
 
@@ -45,3 +48,28 @@ async def logout(
 @router.get("/me", response_model=APIResponse[UserRead])
 async def get_me(current_user: User = Depends(get_current_user)):
     return create_success_response(data=current_user)
+
+
+@router.get(
+    "/me/landing-summary",
+    response_model=APIResponse[LandingSummary],
+    summary="Post-login landing summary — alerts, active labour sessions, pending referrals",
+    tags=["Authentication"],
+)
+async def get_landing_summary(
+    x_facility_context: Optional[str] = Header(default=None),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    from app.services.clinician_dashboard_service import get_landing_summary as _get_landing_summary
+
+    facility_id: Optional[uuid.UUID] = None
+    if x_facility_context:
+        try:
+            facility_id = uuid.UUID(x_facility_context)
+        except ValueError:
+            pass
+
+    summary = await _get_landing_summary(db, current_user.id, facility_id)
+    return create_success_response(data=summary)
+

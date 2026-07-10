@@ -8,7 +8,7 @@ from sqlalchemy.orm import selectinload
 from app.models.pregnancy import (
     PregnancyRecord, PregnancyStatus, CarePathwayTemplate, PregnancyVitalsEntry,
     VitalsFeedback, ScheduledVisit, PregnancyRiskScore, WeekInfo, NutritionGuidance,
-    NutritionCategory,
+    NutritionCategory, ClinicalNote,
 )
 from app.models.cycle import FormSubmission
 
@@ -227,3 +227,21 @@ async def update_risk_score_override(
     await db.flush()
     await db.refresh(score)
     return score
+
+
+async def create_clinical_note(db: AsyncSession, data: dict) -> ClinicalNote:
+    obj = ClinicalNote(**data)
+    db.add(obj)
+    await db.flush()
+    await db.refresh(obj)
+    return obj
+
+
+async def list_clinical_notes_for_patient(db: AsyncSession, patient_user_id: uuid.UUID) -> list[ClinicalNote]:
+    stmt = (
+        select(ClinicalNote)
+        .where(ClinicalNote.patient_user_id == patient_user_id)
+        .order_by(ClinicalNote.created_at.desc())
+    )
+    result = await db.execute(stmt)
+    return result.scalars().all()

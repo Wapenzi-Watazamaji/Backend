@@ -121,6 +121,27 @@ class VitalsFeedback(Base):
     vitals_entry: Mapped["PregnancyVitalsEntry"] = relationship("PregnancyVitalsEntry", back_populates="feedback")
 
 
+class ClinicalNote(Base):
+    """A clinician note on a patient record.
+    Optionally linked to a specific vitals entry (via vitals_entry_id).
+    When vitals_entry_id is null, the note is a free-standing patient note.
+    """
+    __tablename__ = "clinical_notes"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    patient_user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
+    clinician_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
+    message: Mapped[str] = mapped_column(Text, nullable=False)
+    # Optional link to a generic form submission (vitals, cycle, postpartum, etc.)
+    submission_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("form_submissions.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+
 class ScheduledVisit(Base):
     __tablename__ = "scheduled_visits"
 

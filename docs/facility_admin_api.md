@@ -348,3 +348,119 @@ All endpoints return a consistent error shape:
 | `403` | Missing `X-Facility-Context`, user not a staff member at the facility, or insufficient role (`FACILITY_ADMIN` required) |
 | `400` | Malformed request body or query parameter |
 | `404` | Resource not found |
+
+---
+
+### `POST /facility-admin/staff/{staff_id}/resend-invite`
+**Resend invite to a pending staff member**
+
+Re-triggers an invite notification for a staff member with status `INVITE_PENDING`.
+
+**Role required:** `FACILITY_ADMIN`
+
+#### Path Parameters
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `staff_id` | `UUID` | ✅ Yes | The UUID of the `StaffMember` record |
+
+#### Response Body `200 OK`
+```json
+{
+  "success": true,
+  "data": {
+    "staffId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+    "resentAt": "2026-07-10T08:45:00Z"
+  }
+}
+```
+
+---
+
+### `PUT /facility-admin/staff/{staff_id}/capacity`
+**Update a staff member's patient capacity cap**
+
+Sets the soft patient capacity limit for a clinician. This is advisory — it flags the admin's attention when the clinician is near or over capacity, but does not block assignment.
+
+**Role required:** `FACILITY_ADMIN`
+
+#### Path Parameters
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `staff_id` | `UUID` | ✅ Yes | The UUID of the `StaffMember` record |
+
+#### Request Body
+```json
+{
+  "capacity": 35
+}
+```
+
+#### Response Body `200 OK`
+```json
+{
+  "success": true,
+  "data": {
+    "staffId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+    "capacity": 35
+  }
+}
+```
+
+---
+
+### `PUT /facility-admin/staff/{staff_id}/deactivate`
+**Deactivate a staff member**
+
+Sets the staff member's status to `DEACTIVATED`, revoking their login access. All historical records (vitals logged, feedback given) are preserved. Existing assigned patients should be reassigned via `PUT /facility-admin/patients/{patient_user_id}/assign-clinician`.
+
+**Role required:** `FACILITY_ADMIN`
+
+#### Path Parameters
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `staff_id` | `UUID` | ✅ Yes | The UUID of the `StaffMember` record |
+
+#### Response Body `200 OK`
+```json
+{
+  "success": true,
+  "data": {
+    "staffId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+    "status": "DEACTIVATED"
+  }
+}
+```
+
+---
+
+### `PUT /facility-admin/patients/{patient_user_id}/assign-clinician`
+**Assign a single patient to a clinician**
+
+Sets the `personal_doctor_id` on a patient's profile, linking them to a specific clinician. Use `POST /facility-admin/bulk-reassign` to assign multiple patients at once.
+
+**Role required:** `FACILITY_ADMIN`
+
+#### Path Parameters
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `patient_user_id` | `UUID` | ✅ Yes | The `userId` of the patient to assign |
+
+#### Request Body
+```json
+{
+  "clinicianId": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+}
+```
+
+#### Response Body `200 OK`
+```json
+{
+  "success": true,
+  "data": {
+    "patientUserId": "...",
+    "assignedClinicianId": "...",
+    "assignedAt": "2026-07-10T08:45:00Z"
+  }
+}
+```
+

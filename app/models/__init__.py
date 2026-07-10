@@ -8,6 +8,7 @@ from .pregnancy import (
     PregnancyRecord, CarePathwayTemplate, PregnancyVitalsEntry, VitalsFeedback,
     ScheduledVisit, PregnancyRiskScore, WeekInfo, NutritionGuidance,
     PregnancyStatus, PregnancyOutcome, VisitStatus, RiskLevel, NutritionCategory,
+    ClinicalNote,
 )
 from .postpartum import BabyProfile, EpdsScreening, BabyGender, EpdsRiskLevel
 
@@ -20,6 +21,5 @@ from .labour import (
 from .referral import Referral, ReferralReason, ReferralStatus
 from .report import Report, ReportType, ReportFormat, ReportStatus
 from .education import EducationContent, EducationEvent, ContentCategory
-
 
 

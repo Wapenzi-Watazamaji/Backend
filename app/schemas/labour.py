@@ -14,6 +14,7 @@ class LabourSessionCreate(BaseModel):
     pregnancyId: uuid.UUID
     facilityId: uuid.UUID
     activeLabourStartedAt: datetime
+    room: Optional[str] = None
 
 
 class LabourSessionClose(BaseModel):

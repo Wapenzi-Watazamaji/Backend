@@ -265,3 +265,164 @@ All endpoints return a consistent error shape:
 | `403` | Missing `X-Facility-Context`, user not a staff member at the facility, or insufficient role |
 | `400` | Malformed request body or query parameter |
 | `404` | Resource not found |
+
+---
+
+### 7. `PUT /dashboard/alerts/{alert_id}/acknowledge`
+**Acknowledge a specific alert**
+
+Marks a labour alert as acknowledged by setting `acknowledgedAt` to the current timestamp. Once acknowledged, the alert is no longer included in the active alerts feed.
+
+#### Path Parameters
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `alert_id` | `UUID` | ✅ Yes | The UUID of the `LabourAlert` to acknowledge |
+
+#### Request Body
+None.
+
+#### Response Body `200 OK`
+```json
+{
+  "success": true,
+  "data": {
+    "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+    "acknowledgedAt": "2026-07-10T08:30:00Z"
+  }
+}
+```
+
+---
+
+### 8. `GET /dashboard/patients/{patient_user_id}/overview`
+**Get a single patient's overview**
+
+Returns the patient's identity, active pregnancy summary (if pregnant), care team, and emergency contact. Used to power the patient detail sidebar.
+
+#### Path Parameters
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `patient_user_id` | `UUID` | ✅ Yes | The `userId` of the patient |
+
+#### Response Body `200 OK`
+```json
+{
+  "success": true,
+  "data": {
+    "patient": {
+      "userId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+      "fullName": "Wanjiru Kamau",
+      "phoneNumber": "+254712345678",
+      "dateOfBirth": "2001-03-14",
+      "stage": "PREGNANT"
+    },
+    "pregnancySummary": {
+      "dueDate": "2026-08-27",
+      "gestationalAge": "31 weeks, 2 days",
+      "ancVisitsCompleted": 6,
+      "ancVisitsTotal": 8,
+      "lastBloodPressure": "122/80",
+      "lastWeightKg": 68.4
+    },
+    "careTeam": [
+      { "userId": "...", "fullName": "Dr. Achieng Otieno", "role": "Assigned clinician" }
+    ],
+    "emergencyContact": {
+      "name": "James Kamau",
+      "relationship": "Husband",
+      "phoneNumber": "+254721556002"
+    }
+  }
+}
+```
+
+`pregnancySummary` is `null` if the patient is not currently pregnant.
+
+---
+
+### 9. `GET /dashboard/patients/{patient_user_id}/timeline`
+**Get a patient's cross-module timeline**
+
+Returns a merged, time-sorted feed of all clinical events for a single patient: scheduled visits, vitals submissions, and labour sessions.
+
+#### Path Parameters
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `patient_user_id` | `UUID` | ✅ Yes | The `userId` of the patient |
+
+#### Query Parameters
+| Parameter | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `filter` | `string` | No | `ALL` | `ALL` \| `VITALS` \| `VISITS` \| `FLAGS` |
+| `page` | `int` | No | `1` | Page number |
+| `page_size` | `int` | No | `20` | Items per page |
+
+#### Response Body `200 OK`
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "type": "FORM_SUBMISSION",
+      "isFlagged": true,
+      "title": "Vitals / Check-in submitted",
+      "summary": "Patient submitted a Pregnancy Vitals form",
+      "occurredAt": "2026-07-09T08:10:00Z",
+      "sourceId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+      "actions": ["RESPOND"]
+    },
+    {
+      "type": "SCHEDULED_VISIT",
+      "isFlagged": false,
+      "title": "ANC Visit — ANC Visit 6",
+      "summary": "Scheduled ANC visit: ANC Visit 6",
+      "occurredAt": "2026-07-08T11:00:00Z",
+      "sourceId": "...",
+      "actions": []
+    }
+  ]
+}
+```
+
+`type` values: `FORM_SUBMISSION` | `SCHEDULED_VISIT` | `LABOUR_EVENT`
+
+---
+
+### 10. `GET /dashboard/patients/{patient_user_id}/pregnancy-vitals`
+**Get a patient's pregnancy vitals (clinician read view)**
+
+Returns all pregnancy vitals and maternal check-in form submissions for a patient, including flagging status and feedback count.
+
+#### Path Parameters
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `patient_user_id` | `UUID` | ✅ Yes | The `userId` of the patient |
+
+#### Query Parameters
+| Parameter | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `filter` | `string` | No | `ALL` | `ALL` \| `FLAGGED` \| `VITALS_ONLY` \| `SYMPTOMS_ONLY` |
+| `page` | `int` | No | `1` | Page number |
+| `page_size` | `int` | No | `20` | Items per page |
+
+#### Response Body `200 OK`
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "submissionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+      "submittedAt": "2026-07-09T08:10:00Z",
+      "answers": {
+        "systolicBP": 135,
+        "diastolicBP": 90,
+        "weightKg": 70.2
+      },
+      "isFlagged": true,
+      "flaggedReasons": ["Elevated blood pressure"],
+      "feedbackCount": 1
+    }
+  ]
+}
+```
+

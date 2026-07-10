@@ -50,6 +50,23 @@ async def login_user(db: AsyncSession, login_in: UserLogin) -> Token:
     staff_memberships = None
     if user.role in (UserRole.CLINICIAN, UserRole.FACILITY_ADMIN):
         from app.services.facility_service import get_staff_memberships
+        from app.models.staff import StaffMember as StaffMemberModel, StaffStatus
+        from sqlalchemy import select
+        
+        # Check if they have a pending invite and flip to ACTIVE on first login
+        stmt = select(StaffMemberModel).where(
+            StaffMemberModel.user_id == user.id,
+            StaffMemberModel.status == StaffStatus.INVITE_PENDING
+        )
+        res = await db.execute(stmt)
+        pending_staff = res.scalars().all()
+        for staff_row in pending_staff:
+            staff_row.status = StaffStatus.ACTIVE
+            from datetime import datetime, timezone
+            staff_row.joined_at = datetime.now(timezone.utc)
+        if pending_staff:
+            await db.commit()
+
         memberships = await get_staff_memberships(db, user.id)
         staff_memberships = [m.model_dump() for m in memberships]
 

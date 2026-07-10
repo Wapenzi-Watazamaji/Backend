@@ -76,6 +76,16 @@ class StaffMember(BaseModel):
     email: Optional[str] = None
 
 class StaffInvite(BaseModel):
-    email: str
+    fullName: str
+    phoneNumber: str
+    password: str
     role: str
     specialty: Optional[str] = None
+
+
+class StaffCapacityUpdate(BaseModel):
+    capacity: int
+
+
+class AssignClinicianRequest(BaseModel):
+    clinicianId: uuid.UUID

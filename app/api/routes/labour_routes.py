@@ -243,13 +243,14 @@ from fastapi import HTTPException
     "/active",
     response_model=APIResponse[list[ActiveLabourSessionRead]],
     responses=STANDARD_ERROR_RESPONSES,
-    summary="List active labour sessions for a facility",
+    summary="[Facility Admin] All active labour sessions for a facility",
 )
 async def get_active_sessions_feed(
     db: AsyncSession = Depends(deps.get_db),
-    current_user: User = Depends(deps.require_clinician),
+    current_user: User = Depends(deps.require_facility_admin),
     facility_id: uuid.UUID = Depends(deps.get_facility_context)
 ):
+    """Returns every active labour session at the facility. Facility admin only."""
     sessions = await labour_web_service.get_active_sessions(db, facility_id)
     return create_success_response(data=sessions)
 

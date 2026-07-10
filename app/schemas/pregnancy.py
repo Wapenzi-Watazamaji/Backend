@@ -216,3 +216,20 @@ class RiskScoreHistoryItem(BaseModel):
         if hasattr(obj, "calculated_at") and not isinstance(obj, dict):
             return {"calculatedAt": obj.calculated_at, "score": obj.score, "level": obj.level}
         return obj
+
+
+class ClinicalNoteCreateRequest(BaseModel):
+    message: str
+    submissionId: Optional[uuid.UUID] = None
+
+
+class ClinicalNoteRead(BaseModel):
+    id: uuid.UUID
+    patient_user_id: uuid.UUID
+    clinician_id: uuid.UUID
+    message: str
+    submission_id: Optional[uuid.UUID] = None
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}

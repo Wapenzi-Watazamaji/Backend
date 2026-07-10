@@ -151,6 +151,7 @@ async def create_session(
         "clinician_id": clinician_id,
         "active_labour_started_at": data.activeLabourStartedAt,
         "status": LabourSessionStatus.ACTIVE,
+        "room": data.room,
     })
     await db.commit()
     await db.refresh(session)

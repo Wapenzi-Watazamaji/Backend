@@ -74,3 +74,18 @@ class PatientOverview(BaseModel):
     pregnancySummary: Optional[PregnancySummary] = None
     careTeam: list[CareTeamMember] = []
     emergencyContact: Optional[EmergencyContactInfo] = None
+
+
+class LandingSummary(BaseModel):
+    activeAlertCount: int
+    activeLabourSessionCount: int
+    pendingReferralCount: int
+
+
+class PatientVitalsItem(BaseModel):
+    submissionId: uuid.UUID
+    submittedAt: datetime
+    answers: dict
+    isFlagged: bool
+    flaggedReasons: list[str] = []
+    feedbackCount: int = 0
