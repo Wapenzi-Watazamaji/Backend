@@ -25,7 +25,7 @@ async def get_content(db: AsyncSession, content_id: uuid.UUID) -> EducationConte
 
 async def list_content(
     db: AsyncSession, 
-    facility_id: uuid.UUID, 
+    facility_id: uuid.UUID | None = None, 
     category: ContentCategory | None = None,
     skip: int = 0,
     limit: int = 100
@@ -68,11 +68,11 @@ async def get_event(db: AsyncSession, event_id: uuid.UUID) -> EducationEventRead
         raise NotFoundError(message="Education event not found")
     return EducationEventRead.model_validate(event)
 
-async def list_events(db: AsyncSession, facility_id: uuid.UUID) -> list[EducationEventRead]:
+async def list_events(db: AsyncSession, facility_id: uuid.UUID | None = None) -> list[EducationEventRead]:
     events = await education_repository.get_events_list(db, facility_id)
     return [EducationEventRead.model_validate(e) for e in events]
 
-async def get_feed(db: AsyncSession, facility_id: uuid.UUID, filter_type: str = "all") -> list[Dict[str, Any]]:
+async def get_feed(db: AsyncSession, facility_id: uuid.UUID | None = None, filter_type: str = "all") -> list[Dict[str, Any]]:
     # Simple feed generator combining content and events
     feed = []
     

@@ -34,13 +34,20 @@ async def get_population_snapshot(db: AsyncSession, facility_id: uuid.UUID) -> P
     trimester_breakdown = {"T1": 0, "T2": 0, "T3": total_pregnancies}
     
     return PopulationSnapshot(
-        totalPregnancies=total_pregnancies,
-        highRiskCount=risk_breakdown["HIGH"],
-        mediumRiskCount=risk_breakdown["MEDIUM"],
-        lowRiskCount=risk_breakdown["LOW"],
-        trimesterBreakdown=trimester_breakdown,
-        postpartumCount=0,
-        snapshotDate=date.today()
+        facilityId=facility_id,
+        periodStart=date.today(),
+        periodEnd=date.today(),
+        ancAttendanceRate=[],
+        topRiskFlags=[],
+        referralVolumeByMonth=[],
+        totals={
+            "pregnancies": total_pregnancies,
+            "postpartum": 0,
+            "highRisk": risk_breakdown["HIGH"],
+            "mediumRisk": risk_breakdown["MEDIUM"],
+            "lowRisk": risk_breakdown["LOW"],
+            "trimesterBreakdown": trimester_breakdown
+        }
     )
 
 

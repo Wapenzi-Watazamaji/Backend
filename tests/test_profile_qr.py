@@ -3,35 +3,7 @@ import pytest_asyncio
 import uuid
 from httpx import AsyncClient
 
-def generate_phone() -> str:
-    return f"+2547{str(uuid.uuid4().int)[:8]}"
-
-@pytest_asyncio.fixture(scope="function")
-async def authenticated_client(async_client: AsyncClient):
-    # Register and login a new user to get an access token
-    phone = generate_phone()
-    register_payload = {
-        "phone_number": phone,
-        "full_name": "Test Profile User",
-        "password": "SecurePassword123!",
-        "role": "USER",
-        "date_of_birth": "1990-01-01",
-        "gender": "FEMALE"
-    }
-    await async_client.post("/api/v1/auth/register", json=register_payload)
-
-    login_payload = {
-        "phone_number": phone,
-        "password": "SecurePassword123!"
-    }
-    login_res = await async_client.post("/api/v1/auth/login", json=login_payload)
-    token = login_res.json()["data"]["access_token"]
-    
-    # Create a new client with the authorization header
-    # We yield the same async_client but with headers updated
-    async_client.headers.update({"Authorization": f"Bearer {token}"})
-    yield async_client
-    async_client.headers.pop("Authorization", None)
+# Fixtures now coming from conftest.py
 
 @pytest.mark.asyncio
 async def test_create_and_get_profile(authenticated_client: AsyncClient):
@@ -100,7 +72,7 @@ async def test_qr_token_flow(authenticated_client: AsyncClient):
     res_scan = await authenticated_client.get(f"/api/v1/profile/qr/scan/{new_token}")
     assert res_scan.status_code == 200
     scan_data = res_scan.json()["data"]
-    assert scan_data["user"]["full_name"] == "Test Profile User"
+    assert scan_data["user"]["full_name"] == "Test Patient"
     assert scan_data["profile"]["typical_cycle_length_days"] == 28
 
 @pytest.mark.asyncio

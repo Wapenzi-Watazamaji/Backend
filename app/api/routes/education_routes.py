@@ -27,14 +27,14 @@ async def create_content(
 
 @router.get("/content", response_model=APIResponse[list[EducationContentRead]])
 async def list_content(
+    facility_id: uuid.UUID | None = Query(None, description="Optional facility ID to filter by"),
     category: ContentCategory | None = None,
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1),
-    requester_facility_id: uuid.UUID = Depends(get_facility_context),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    contents = await education_service.list_content(db, requester_facility_id, category, skip, limit)
+    contents = await education_service.list_content(db, facility_id, category, skip, limit)
     return create_success_response(message="Content fetched successfully", data=contents)
 
 @router.get("/content/{content_id}", response_model=APIResponse[EducationContentRead])
@@ -79,11 +79,11 @@ async def create_event(
 
 @router.get("/events", response_model=APIResponse[list[EducationEventRead]])
 async def list_events(
-    requester_facility_id: uuid.UUID = Depends(get_facility_context),
+    facility_id: uuid.UUID | None = Query(None, description="Optional facility ID to filter by"),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    events = await education_service.list_events(db, requester_facility_id)
+    events = await education_service.list_events(db, facility_id)
     return create_success_response(message="Events fetched successfully", data=events)
 
 @router.get("/events/{event_id}", response_model=APIResponse[EducationEventRead])
@@ -97,10 +97,10 @@ async def get_event(
 
 @router.get("/feed", response_model=APIResponse[list[Dict[str, Any]]])
 async def get_feed(
+    facility_id: uuid.UUID | None = Query(None, description="Optional facility ID to filter by"),
     filter_type: str = Query("all", description="Filter feed by 'all', 'content', or 'events'"),
-    requester_facility_id: uuid.UUID = Depends(get_facility_context),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    feed = await education_service.get_feed(db, requester_facility_id, filter_type)
+    feed = await education_service.get_feed(db, facility_id, filter_type)
     return create_success_response(message="Feed fetched successfully", data=feed)

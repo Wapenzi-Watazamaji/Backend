@@ -33,8 +33,10 @@ async def get_patient_medical_history(
     db: AsyncSession = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_user),
 ):
-    # Could check permissions here to ensure the clinician has access to the patient
+    from app.utils.exceptions import NotFoundError
     record = await medical_history_service.get_medical_history(db, user_id)
+    if not record:
+        raise NotFoundError("Medical history not found")
     return create_success_response(data=record)
 
 @router.post(
@@ -64,7 +66,10 @@ async def update_patient_medical_history(
     db: AsyncSession = Depends(deps.get_db),
     current_user: User = Depends(deps.require_clinician),
 ):
+    from app.utils.exceptions import NotFoundError
     record = await medical_history_service.update_medical_history(db, user_id, current_user.id, data_in)
+    if not record:
+        raise NotFoundError("Medical history not found")
     return create_success_response(data=record)
 
 @router.get(
@@ -106,5 +111,8 @@ async def get_my_medical_history(
     db: AsyncSession = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_user),
 ):
+    from app.utils.exceptions import NotFoundError
     record = await medical_history_service.get_medical_history(db, current_user.id)
+    if not record:
+        raise NotFoundError("Medical history not found")
     return create_success_response(data=record)

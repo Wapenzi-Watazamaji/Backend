@@ -12,12 +12,14 @@ async def get_content_by_id(db: AsyncSession, content_id: uuid.UUID) -> Educatio
 
 async def get_content_list(
     db: AsyncSession, 
-    facility_id: uuid.UUID, 
-    category: ContentCategory | None = None,
-    skip: int = 0,
+    facility_id: uuid.UUID | None = None, 
+    category: ContentCategory | None = None, 
+    skip: int = 0, 
     limit: int = 100
 ) -> Sequence[EducationContent]:
-    stmt = select(EducationContent).where(EducationContent.facility_id == facility_id)
+    stmt = select(EducationContent)
+    if facility_id:
+        stmt = stmt.where(EducationContent.facility_id == facility_id)
     if category:
         stmt = stmt.where(EducationContent.category == category)
     stmt = stmt.offset(skip).limit(limit).order_by(EducationContent.created_at.desc())
@@ -29,8 +31,16 @@ async def get_event_by_id(db: AsyncSession, event_id: uuid.UUID) -> EducationEve
     result = await db.execute(stmt)
     return result.scalars().first()
 
-async def get_events_list(db: AsyncSession, facility_id: uuid.UUID) -> Sequence[EducationEvent]:
-    stmt = select(EducationEvent).where(EducationEvent.facility_id == facility_id).order_by(EducationEvent.event_date.asc())
+async def get_events_list(
+    db: AsyncSession, 
+    facility_id: uuid.UUID | None = None, 
+    skip: int = 0, 
+    limit: int = 100
+) -> Sequence[EducationEvent]:
+    stmt = select(EducationEvent)
+    if facility_id:
+        stmt = stmt.where(EducationEvent.facility_id == facility_id)
+    stmt = stmt.offset(skip).limit(limit).order_by(EducationEvent.event_date.asc())
     result = await db.execute(stmt)
     return result.scalars().all()
 
