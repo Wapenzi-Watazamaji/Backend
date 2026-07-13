@@ -322,7 +322,94 @@ async def create_vitals(db: AsyncSession, user_id: uuid.UUID, data) -> Pregnancy
         "flagged_reasons": flagged_reasons,
     })
 
-    await _recalculate_risk_score(db, user_id, pregnancy.id)
+    risk_score = await _recalculate_risk_score(db, user_id, pregnancy.id)
+    
+    # Send danger signs or risk level notifications based on user preference
+    try:
+        from app.models.profile import Profile, NotificationPreference
+        from app.models.user import User
+        from app.repositories import notification_repository, device_token_repository
+        from app.utils.firebase import send_push_notification
+        from app.utils.sms import send_sms
+        
+        user = await db.get(User, user_id)
+        profile = await db.scalar(select(Profile).where(Profile.user_id == user_id))
+        pref = NotificationPreference.BOTH
+        if profile and profile.notification_preference:
+            pref = profile.notification_preference
+            
+        # 1. Danger Sign Alert
+        if is_flagged and flagged_reasons:
+            reasons_str = ", ".join(flagged_reasons)
+            msg = f"BintiCare Alert: Potential danger signs detected in your vitals: {reasons_str}. Please contact your clinic or visit the hospital immediately."
+            
+            if pref in (NotificationPreference.SMS, NotificationPreference.BOTH) and user:
+                await send_sms(user.phone_number, msg)
+            if pref in (NotificationPreference.NOTIFICATION, NotificationPreference.BOTH):
+                await notification_repository.create(db, {
+                    "user_id": user_id,
+                    "category": "DANGER_SIGN",
+                    "title": "Danger Sign Alert",
+                    "body": msg,
+                    "is_read": False,
+                    "related_entity_type": "PREGNANCY_VITALS_ENTRY",
+                    "related_entity_id": str(entry.id)
+                })
+                tokens = await device_token_repository.get_by_user_id(db, user_id)
+                if tokens:
+                    for t in tokens:
+                        await send_push_notification(
+                            token=t.device_token,
+                            title="Danger Sign Alert",
+                            body=msg,
+                            data={"entryId": str(entry.id)}
+                        )
+            
+            # Send SMS and web notification to the assigned doctor
+            if profile and profile.personal_doctor_id:
+                doc = await db.get(User, profile.personal_doctor_id)
+                if doc:
+                    doc_msg = f"BintiCare Clinician Alert: Patient {user.full_name} logged vitals with danger signs: {reasons_str}. Follow up at {user.phone_number}."
+                    await notification_repository.create(db, {
+                        "user_id": doc.id,
+                        "category": "DANGER_SIGN",
+                        "title": "Patient Danger Signs Detected",
+                        "body": doc_msg,
+                        "is_read": False,
+                        "related_entity_type": "PREGNANCY_VITALS_ENTRY",
+                        "related_entity_id": str(entry.id)
+                    })
+                    await send_sms(doc.phone_number, doc_msg)
+                        
+        # 2. Risk Level Escalation Alert
+        if risk_score.level in (RiskLevel.MEDIUM, RiskLevel.HIGH):
+            msg = f"BintiCare Alert: Your overall pregnancy risk level is calculated as {risk_score.level.value}. Please coordinate a clinical consultation."
+            
+            if pref in (NotificationPreference.SMS, NotificationPreference.BOTH) and user:
+                await send_sms(user.phone_number, msg)
+            if pref in (NotificationPreference.NOTIFICATION, NotificationPreference.BOTH):
+                await notification_repository.create(db, {
+                    "user_id": user_id,
+                    "category": "RISK_ALERT",
+                    "title": "Pregnancy Risk Alert",
+                    "body": msg,
+                    "is_read": False,
+                    "related_entity_type": "PREGNANCY_RISK_SCORE",
+                    "related_entity_id": str(risk_score.id)
+                })
+                tokens = await device_token_repository.get_by_user_id(db, user_id)
+                if tokens:
+                    for t in tokens:
+                        await send_push_notification(
+                            token=t.device_token,
+                            title="Pregnancy Risk Alert",
+                            body=msg,
+                            data={"riskId": str(risk_score.id)}
+                        )
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning(f"Failed to dispatch vitals notifications: {e}")
+
     await db.commit()
     await db.refresh(entry)
     entry.submission = submission

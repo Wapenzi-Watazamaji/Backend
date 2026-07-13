@@ -380,6 +380,14 @@ async def assign_patient_to_clinician(
         raise NotFoundError(message="Patient not found in this facility")
     profile.personal_doctor_id = clinician_id
     await db.commit()
+    
+    try:
+        from app.services.notification_service import send_clinician_assigned_notification
+        await send_clinician_assigned_notification(db, patient_user_id, clinician_id, facility_id)
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning(f"Failed to trigger doctor assignment alert: {e}")
+        
     return {
         "patientUserId": str(patient_user_id),
         "assignedClinicianId": str(clinician_id),

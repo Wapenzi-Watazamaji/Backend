@@ -21,7 +21,21 @@ async def register_user(db: AsyncSession, user_in: UserCreate):
     user_data["password_hash"] = hashed_password
     user_data["account_type"] = "FULL"
     
-    return await user_repository.create(db, user_data)
+    user = await user_repository.create(db, user_data)
+    
+    try:
+        from app.utils.sms import send_sms
+        welcome_msg = (
+            f"Welcome to BintiCare, {user.full_name}! To register with a facility "
+            "and get a clinician assigned to you, you can do so through the app, "
+            "or reply to this SMS with your facility name."
+        )
+        await send_sms(user.phone_number, welcome_msg)
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning(f"Failed to send welcome SMS: {e}")
+        
+    return user
 
 async def register_sms_only(db: AsyncSession, user_in: UserCreateSmsOnly):
     existing_user = await user_repository.get_by_phone_number(db, user_in.phone_number)
@@ -35,7 +49,20 @@ async def register_sms_only(db: AsyncSession, user_in: UserCreateSmsOnly):
     user_data["account_type"] = "SMS_ONLY"
     user_data["password_hash"] = None
     
-    return await user_repository.create(db, user_data)
+    user = await user_repository.create(db, user_data)
+    
+    try:
+        from app.utils.sms import send_sms
+        welcome_msg = (
+            f"Welcome to BintiCare, {user.full_name}! To register with a facility "
+            "and get a clinician assigned to you, please reply to this SMS with your facility name."
+        )
+        await send_sms(user.phone_number, welcome_msg)
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning(f"Failed to send welcome SMS: {e}")
+        
+    return user
 
 async def login_user(db: AsyncSession, login_in: UserLogin) -> Token:
     user = await user_repository.get_by_phone_number(db, login_in.phone_number)
