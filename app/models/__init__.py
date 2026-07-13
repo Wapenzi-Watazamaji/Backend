@@ -25,5 +25,8 @@ from .labour import (
 from .referral import Referral, ReferralReason, ReferralStatus
 from .report import Report, ReportType, ReportFormat, ReportStatus
 from .education import EducationContent, EducationEvent, ContentCategory
+from .reminder import Reminder, ReminderType
+from .device_token import DeviceToken
+from .notification import Notification
 
 

@@ -25,6 +25,7 @@ class SharingPreference(str, PyEnum):
 class NotificationPreference(str, PyEnum):
     SMS = "SMS"
     NOTIFICATION = "NOTIFICATION"
+    BOTH = "BOTH"
 
 class DoctorRequestStatus(str, PyEnum):
     ASSIGNED = "ASSIGNED"

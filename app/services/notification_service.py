@@ -1,0 +1,391 @@
+from app.models.user import User
+import uuid
+import logging
+from typing import List, Tuple, Optional
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.repositories import notification_repository, device_token_repository, user_repository, cycle_repository, profile_repository
+from app.models.notification import Notification
+from app.models.device_token import DeviceToken
+from app.models.profile import NotificationPreference
+from app.models.cycle import FormContext, FormTemplate
+from app.models.reminder import Reminder
+from app.schemas.notification import DeviceRegisterRequest, SmsSendRequest, SmsInboundWebhook
+from app.utils.exceptions import NotFoundError, ValidationError
+from app.utils.sms import send_sms, render_template
+
+logger = logging.getLogger(__name__)
+
+async def list_notifications(
+    db: AsyncSession, 
+    user_id: uuid.UUID, 
+    unread_only: bool = False, 
+    page: int = 1, 
+    page_size: int = 20
+) -> Tuple[List[Notification], int]:
+    limit = page_size
+    offset = (page - 1) * page_size
+    return await notification_repository.get_by_user_id(db, user_id, unread_only, limit, offset)
+
+async def mark_notification_read(db: AsyncSession, notification_id: uuid.UUID, user_id: uuid.UUID) -> Notification:
+    notification = await notification_repository.get_by_id(db, notification_id)
+    if not notification or notification.user_id != user_id:
+        raise NotFoundError(message="Notification not found")
+    return await notification_repository.update(db, notification, {"is_read": True})
+
+async def register_device_token(db: AsyncSession, user_id: uuid.UUID, device_in: DeviceRegisterRequest) -> DeviceToken:
+    # Check if this token is already registered
+    existing_token = await device_token_repository.get_by_token(db, device_in.device_token)
+    if existing_token:
+        if existing_token.user_id == user_id:
+            return existing_token
+        else:
+            await device_token_repository.delete(db, existing_token)
+            
+    token_data = device_in.model_dump()
+    token_data["user_id"] = user_id
+    return await device_token_repository.create(db, token_data)
+
+async def unregister_device_token(db: AsyncSession, token_id: uuid.UUID, user_id: uuid.UUID) -> None:
+    token = await device_token_repository.get_by_id(db, token_id)
+    if not token or token.user_id != user_id:
+        raise NotFoundError(message="Device token not found")
+    await device_token_repository.delete(db, token)
+
+async def send_templated_sms(db: AsyncSession, req: SmsSendRequest) -> dict:
+    message = render_template(req.template_id, req.variables)
+    res = await send_sms(req.to_phone_number, message)
+    return res
+
+async def inbound_sms_reply(db: AsyncSession, webhook: SmsInboundWebhook) -> None:
+    # 1. Find user by phone number
+    user = await user_repository.get_by_phone_number(db, webhook.from_number)
+    if not user:
+        raise NotFoundError(message="User not found for this phone number")
+        
+    # 2. Check if the message is a vitals submission (e.g. starts with "vitals")
+    text_clean = webhook.text.strip().lower()
+    if text_clean.startswith("vitals"):
+        import re
+        from app.utils.sms import send_sms
+        
+        # Parse BP (systolic/diastolic) and Weight
+        bp_match = re.search(r'(\d{2,3})/(\d{2,3})', text_clean)
+        systolic, diastolic, weight = None, None, None
+        
+        cleaned_text = text_clean
+        if bp_match:
+            systolic = int(bp_match.group(1))
+            diastolic = int(bp_match.group(2))
+            cleaned_text = text_clean.replace(bp_match.group(0), "")
+            
+        weight_match = re.search(r'(?:wt|weight)?\s*(\d{2,3}(?:\.\d+)?)', cleaned_text)
+        if weight_match:
+            weight = float(weight_match.group(1))
+            
+        if systolic is None or diastolic is None or weight is None:
+            reply_msg = "BintiCare: Invalid format. Please reply in this format: vitals <blood_pressure> <weight>. Example: vitals 120/80 65"
+            await send_sms(webhook.from_number, reply_msg)
+            return
+            
+        # Create vitals entry using the pregnancy service
+        from app.services import pregnancy_service
+        from app.utils.exceptions import NoActivePregnancyError
+        
+        class SmsVitalsPayload:
+            def __init__(self, sys, dia, wt):
+                self.templateSlug = "tmpl_preg_vitals_v1"
+                self.answers = {
+                    "systolicBp": sys,
+                    "diastolicBp": dia,
+                    "weightKg": wt,
+                    "symptoms": []
+                }
+                self.clientGeneratedId = None
+                self.clientCreatedAt = None
+                
+        try:
+            await pregnancy_service.create_vitals(db, user.id, SmsVitalsPayload(systolic, diastolic, weight))
+            confirm_msg = f"BintiCare: Thank you {user.full_name}! We have recorded your vitals: Blood Pressure {systolic}/{diastolic} mmHg, Weight {weight} kg."
+            await send_sms(webhook.from_number, confirm_msg)
+            return
+        except NoActivePregnancyError:
+            reply_msg = "BintiCare: No active pregnancy record found for your account. If you are postpartum, please log baby vitals in the mobile app."
+            await send_sms(webhook.from_number, reply_msg)
+            return
+        except Exception as e:
+            logger.error(f"Error saving vitals via SMS: {e}")
+            reply_msg = "BintiCare: An error occurred while saving your vitals. Please try again later."
+            await send_sms(webhook.from_number, reply_msg)
+            return
+
+    # 3. GET FACILITIES intent
+    if text_clean.startswith("get facilities") or text_clean.startswith("get facility"):
+        from app.models.facility import Facility
+        from sqlalchemy import select
+        from app.utils.sms import send_sms
+        
+        parts = webhook.text.strip().split(None, 2)
+        county = parts[2] if len(parts) > 2 else None
+        
+        if county:
+            stmt = select(Facility).where(Facility.county.ilike(f"%{county}%"), Facility.is_active == True)
+        else:
+            stmt = select(Facility).where(Facility.is_active == True).limit(5)
+            
+        res = await db.execute(stmt)
+        facilities = res.scalars().all()
+        
+        if not facilities:
+            msg = "BintiCare: No active facilities found. Try listing without specifying county."
+        else:
+            fac_list = []
+            for f in facilities:
+                fac_list.append(f"{f.name} in {f.county} (ID: {str(f.id)[:8]})")
+            msg = "BintiCare Available Facilities:\n" + "\n".join(fac_list) + "\nReply with REGISTER FACILITY <name_or_id>"
+            
+        await send_sms(webhook.from_number, msg)
+        return
+
+    # 4. REGISTER FACILITY intent
+    if text_clean.startswith("register facility"):
+        from app.models.facility import Facility
+        from app.models.profile import Profile
+        from sqlalchemy import select, cast, String
+        from app.utils.sms import send_sms
+        
+        parts = webhook.text.strip().split(None, 2)
+        if len(parts) < 3:
+            await send_sms(webhook.from_number, "BintiCare: Please specify the facility name or ID. Example: REGISTER FACILITY Karen Health Center")
+            return
+            
+        target = parts[2]
+        stmt = select(Facility).where(
+            (Facility.name.ilike(f"%{target}%")) | 
+            (cast(Facility.id, String).like(f"{target}%"))
+        )
+        res = await db.execute(stmt)
+        facility = res.scalar_one_or_none()
+        
+        if not facility:
+            await send_sms(webhook.from_number, f"BintiCare: Facility '{target}' not found. Reply with GET FACILITIES to search.")
+            return
+            
+        profile = await profile_repository.get_by_user_id(db, user.id)
+        if not profile:
+            profile = await profile_repository.create(db, user.id)
+            
+        await profile_repository.update(db, profile, {"preferred_facility_id": facility.id})
+        await db.commit()
+        
+        msg = f"BintiCare: You are now registered with {facility.name}! Reply with REQUEST DOCTOR to get a personal doctor assigned from this facility."
+        await send_sms(webhook.from_number, msg)
+        return
+
+    # 5. REQUEST DOCTOR intent
+    if text_clean.startswith("request doctor"):
+        from app.models.profile import Profile, DoctorRequestStatus
+        from app.models.staff import StaffMember, StaffStatus
+        from app.models.user import UserRole
+        from app.models.facility import Facility
+        from sqlalchemy import select
+        from app.utils.sms import send_sms
+        
+        profile = await profile_repository.get_by_user_id(db, user.id)
+        if not profile or not profile.preferred_facility_id:
+            await send_sms(webhook.from_number, "BintiCare: Please register with a facility first by replying: REGISTER FACILITY <name>")
+            return
+            
+        facility = await db.get(Facility, profile.preferred_facility_id)
+        fac_name = facility.name if facility else "your registered clinic"
+        
+        if profile.personal_doctor_id:
+            doc = await db.get(User, profile.personal_doctor_id)
+            doc_name = doc.full_name if doc else "your assigned doctor"
+            await send_sms(webhook.from_number, f"BintiCare: Dr. {doc_name} is already assigned to you.")
+            return
+            
+        # Look for an active clinician at this facility
+        stmt = (
+            select(User)
+            .join(StaffMember, StaffMember.user_id == User.id)
+            .where(
+                StaffMember.facility_id == profile.preferred_facility_id,
+                User.role == UserRole.CLINICIAN
+            )
+            .limit(1)
+        )
+        res = await db.execute(stmt)
+        clinician = res.scalar_one_or_none()
+            
+        if clinician:
+            await profile_repository.update(db, profile, {
+                "personal_doctor_id": clinician.id,
+                "personal_doctor_request_status": DoctorRequestStatus.ASSIGNED
+            })
+            await db.commit()
+            
+            # Send SMS to patient
+            msg = f"BintiCare: Dr. {clinician.full_name} has been assigned to you. They will monitor your vitals and checks."
+            await send_sms(webhook.from_number, msg)
+            
+            # Trigger SMS and in-app alert to the assigned clinician
+            try:
+                from app.repositories import notification_repository
+                
+                doc_msg = f"BintiCare Clinician Alert: A new patient {user.full_name} has been assigned to you from {fac_name}."
+                await notification_repository.create(db, {
+                    "user_id": clinician.id,
+                    "category": "PATIENT_ASSIGNED",
+                    "title": "New Patient Assigned",
+                    "body": doc_msg,
+                    "is_read": False,
+                    "related_entity_type": "USER",
+                    "related_entity_id": str(user.id)
+                })
+                await send_sms(clinician.phone_number, doc_msg)
+            except Exception as e:
+                logger.warning(f"Failed to alert clinician of patient assignment: {e}")
+        else:
+            await profile_repository.update(db, profile, {
+                "personal_doctor_request_status": DoctorRequestStatus.PENDING
+            })
+            await db.commit()
+            msg = f"BintiCare: Your request for a personal doctor at {fac_name} is pending clinician assignment. We will alert you once assigned."
+            await send_sms(webhook.from_number, msg)
+            
+        return
+
+    # 6. Determine context & linked reminder
+    context = FormContext.MATERNAL_CHECKIN
+    reminder_id = None
+    if webhook.linked_reminder_id:
+        try:
+            reminder_uuid = uuid.UUID(webhook.linked_reminder_id)
+            from app.repositories import reminder_repository
+            reminder = await reminder_repository.get_by_id(db, reminder_uuid)
+            if reminder and reminder.user_id == user.id:
+                reminder_id = reminder.id
+                if reminder.type == "CYCLE":
+                    context = FormContext.CYCLE_ENTRY
+                # Mark as done
+                await reminder_repository.update(db, reminder, {"is_done": True})
+        except Exception as e:
+            logger.error(f"Error checking linked reminder: {e}")
+            
+    # 3. Find active FormTemplate
+    template = await cycle_repository.get_active_form_template(db, context)
+    if not template:
+        # Create a default template if none exists to avoid blocking
+        template_data = {
+            "slug": f"{context.lower().replace('_', '-')}-sms-default",
+            "context": context,
+            "fields": {"response": {"type": "string"}},
+            "is_active": True
+        }
+        template = await cycle_repository.create_form_template(db, template_data)
+        
+    # 4. Create FormSubmission
+    submission_data = {
+        "template_id": template.id,
+        "user_id": user.id,
+        "context": context,
+        "answers": {
+            "response": webhook.text,
+            "enteredBy": "PATIENT",
+            "linkedReminderId": str(reminder_id) if reminder_id else None
+        }
+    }
+    await cycle_repository.create_submission(db, submission_data)
+
+async def get_sms_preference(db: AsyncSession, user_id: uuid.UUID) -> str:
+    profile = await profile_repository.get_by_user_id(db, user_id)
+    if not profile:
+        profile = await profile_repository.create(db, user_id)
+        
+    pref = profile.notification_preference
+    if pref == NotificationPreference.NOTIFICATION:
+        return "APP_NOTIFICATIONS"
+    elif pref == NotificationPreference.SMS:
+        return "SMS"
+    elif pref == NotificationPreference.BOTH:
+        return "BOTH"
+    return "BOTH" # default
+
+async def update_sms_preference(db: AsyncSession, user_id: uuid.UUID, contact_preference: str) -> str:
+    profile = await profile_repository.get_by_user_id(db, user_id)
+    if not profile:
+        profile = await profile_repository.create(db, user_id)
+        
+    if contact_preference == "APP_NOTIFICATIONS":
+        pref = NotificationPreference.NOTIFICATION
+    elif contact_preference == "SMS":
+        pref = NotificationPreference.SMS
+    elif contact_preference == "BOTH":
+        pref = NotificationPreference.BOTH
+    else:
+        raise ValidationError(message="Invalid contactPreference value")
+        
+    await profile_repository.update(db, profile, {"notification_preference": pref})
+    return contact_preference
+
+async def send_clinician_assigned_notification(db: AsyncSession, patient_id: uuid.UUID, clinician_id: uuid.UUID, facility_id: uuid.UUID) -> None:
+    try:
+        from app.models.user import User
+        from app.models.facility import Facility
+        from app.models.profile import Profile, NotificationPreference
+        from app.repositories import notification_repository, device_token_repository
+        from app.utils.firebase import send_push_notification
+        from app.utils.sms import send_sms
+        from sqlalchemy import select
+
+        patient = await db.get(User, patient_id)
+        clinician = await db.get(User, clinician_id)
+        facility = await db.get(Facility, facility_id)
+        
+        if not patient or not clinician:
+            return
+            
+        fac_name = facility.name if facility else "your registered facility"
+        msg = f"BintiCare: Dr. {clinician.full_name} has been assigned as your personal doctor from {fac_name}."
+        
+        profile = await db.scalar(select(Profile).where(Profile.user_id == patient_id))
+        pref = NotificationPreference.BOTH
+        if profile and profile.notification_preference:
+            pref = profile.notification_preference
+            
+        # 1. SMS
+        if pref in (NotificationPreference.SMS, NotificationPreference.BOTH):
+            await send_sms(patient.phone_number, msg)
+            
+        # 2. Push/In-App
+        if pref in (NotificationPreference.NOTIFICATION, NotificationPreference.BOTH):
+            await notification_repository.create(db, {
+                "user_id": patient_id,
+                "category": "DOCTOR_ASSIGNED",
+                "title": "Doctor Assigned",
+                "body": msg,
+                "is_read": False,
+                "related_entity_type": "USER",
+                "related_entity_id": str(clinician_id)
+            })
+            tokens = await device_token_repository.get_by_user_id(db, patient_id)
+            if tokens:
+                for t in tokens:
+                    await send_push_notification(t.device_token, "Doctor Assigned", msg, {"clinicianId": str(clinician_id)})
+
+        # 3. Notify Clinician via SMS and Web Inbox
+        doc_msg = f"BintiCare Clinician Alert: Patient {patient.full_name} has been assigned to you."
+        await notification_repository.create(db, {
+            "user_id": clinician_id,
+            "category": "PATIENT_ASSIGNED",
+            "title": "New Patient Assigned",
+            "body": doc_msg,
+            "is_read": False,
+            "related_entity_type": "USER",
+            "related_entity_id": str(patient_id)
+        })
+        await send_sms(clinician.phone_number, doc_msg)
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning(f"Failed to send clinician assignment alert: {e}")
+
