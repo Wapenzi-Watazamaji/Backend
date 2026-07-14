@@ -72,6 +72,68 @@ This is an atomic operation that:
 
 ---
 
+## GET `/`
+
+Fetch a list of all facilities.
+
+**Authentication:** None (Public) or 🔒 `Authorization: Bearer <access_token>` depending on setup.
+
+**Query Parameters**
+| Parameter | Type | Required | Default | Notes |
+|---|---|---|---|---|
+| `search` | string | ❌ | | Optional search term to filter facilities by name |
+
+**Response `200 OK`**
+```json
+{
+  "success": true,
+  "message": "Facilities fetched successfully",
+  "data": [
+    {
+      "id": "fac-uuid",
+      "name": "Nairobi Hospital",
+      "type": "PRIVATE",
+      "county": "Nairobi",
+      "status": "VERIFIED",
+      "is_active": true,
+      "...": "..."
+    }
+  ],
+  "meta": {}
+}
+```
+
+---
+
+## GET `/{facility_id}`
+
+Retrieve the details of a specific facility by its UUID.
+
+**Authentication:** None (Public) or 🔒 `Authorization: Bearer <access_token>` depending on setup.
+
+**Path Parameters**
+- `facility_id` (uuid): The ID of the facility to fetch.
+
+**Response `200 OK`**
+```json
+{
+  "success": true,
+  "message": "Facility fetched successfully",
+  "data": {
+    "id": "fac-uuid",
+    "name": "Nairobi Hospital",
+    "type": "PRIVATE",
+    "county": "Nairobi",
+    "status": "VERIFIED",
+    "is_active": true,
+    "...": "..."
+  },
+  "meta": {}
+}
+```
+
+---
+
 ## GET `/nearby`
 
 Finds all active facilities within a specified radius, calculating straight-line distance using the Haversine formula based on the user's provided coordinates. The results are ordered by distance (closest first).
