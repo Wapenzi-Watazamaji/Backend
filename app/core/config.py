@@ -19,6 +19,15 @@ class Settings(BaseSettings):
     # Firebase Admin SDK Configuration
     FIREBASE_CREDENTIALS_PATH: Optional[str] = None
 
+    # Azure OpenAI Configuration (AI Chat Companion)
+    AZURE_OPENAI_ENDPOINT: str = ""
+    AZURE_OPENAI_API_KEY: str = ""
+    AZURE_OPENAI_CHAT_DEPLOYMENT: str = ""
+    AZURE_OPENAI_API_VERSION: str = "2024-10-21"
+
+    # Chat rate-limiting
+    CHAT_RATE_LIMIT_PER_MINUTE: int = 20
+
     class Config:
         env_file = ".env"
         extra = "ignore"

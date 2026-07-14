@@ -22,6 +22,7 @@ dependencies = [
     "redis[hiredis]",
     "sqlalchemy>=2.0.51",
     "uvicorn[standard]>=0.49.0",
+    "openai>=1.0.0",
 ]
 
 [project.optional-dependencies]

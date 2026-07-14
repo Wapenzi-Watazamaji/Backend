@@ -28,5 +28,6 @@ from .education import EducationContent, EducationEvent, ContentCategory
 from .reminder import Reminder, ReminderType
 from .device_token import DeviceToken
 from .notification import Notification
+from .ai_chat import ChatConversation, ChatMessage, ChatRole
 
 
