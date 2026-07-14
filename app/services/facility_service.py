@@ -86,6 +86,11 @@ async def update_facility(db: AsyncSession, facility_id: uuid.UUID, update_in: F
     return FacilityRead.model_validate(updated)
 
 
+async def get_facilities(db: AsyncSession, search: str | None = None) -> list[FacilityRead]:
+    facilities = await facility_repository.get_facilities(db, search)
+    return [FacilityRead.model_validate(f) for f in facilities]
+
+
 async def get_staff_memberships(db: AsyncSession, user_id: uuid.UUID) -> list[StaffMembership]:
     from sqlalchemy import select
     from app.models.staff import StaffMember

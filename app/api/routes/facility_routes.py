@@ -1,4 +1,5 @@
 import uuid
+from typing import Optional
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -23,6 +24,24 @@ async def register_facility(
 ):
     result = await facility_service.register_facility(db, req)
     return create_success_response(message="Facility registered successfully", data=result)
+
+
+@router.get("", response_model=APIResponse[list[FacilityRead]])
+async def get_facilities(
+    search: Optional[str] = None,
+    db: AsyncSession = Depends(get_db),
+):
+    facilities = await facility_service.get_facilities(db, search)
+    return create_success_response(message="Facilities fetched successfully", data=facilities)
+
+
+@router.get("/{facility_id}", response_model=APIResponse[FacilityRead])
+async def get_facility_by_id(
+    facility_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    facility = await facility_service.get_facility(db, facility_id)
+    return create_success_response(message="Facility fetched successfully", data=facility)
 
 
 @router.get("/nearby", response_model=APIResponse[list[FacilityWithDistance]])
