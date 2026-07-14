@@ -7,6 +7,10 @@ from app.repositories import (
     postpartum_repository,
     cycle_repository,
 )
+from sqlalchemy import select
+from app.models.pregnancy import PregnancyVitalsEntry, ClinicalNote
+from app.models.postpartum import EpdsScreening
+from app.models.facility import Facility
 from app.services import medical_history_service
 
 
@@ -157,6 +161,56 @@ async def get_nutrition_guidance(db: AsyncSession, *, user_id: uuid.UUID) -> dic
         "guidance": [{"category": g.category.value, "title": g.title, "summary": g.summary} for g in guidance]
     }
 
+async def get_recent_vitals(db: AsyncSession, *, user_id: uuid.UUID) -> dict:
+    pregnancy = await pregnancy_repository.get_active_pregnancy(db, user_id)
+    if not pregnancy: return {"error": "No active pregnancy"}
+    stmt = select(PregnancyVitalsEntry).where(PregnancyVitalsEntry.pregnancy_id == pregnancy.id).order_by(PregnancyVitalsEntry.created_at.desc()).limit(1)
+    entry = (await db.execute(stmt)).scalars().first()
+    if not entry: return {"error": "No vitals logged yet"}
+    
+    # We must explicitly await the lazy load of the submission to get answers
+    await db.refresh(entry, ['submission'])
+    return {
+        "logged_at": entry.created_at.isoformat(),
+        "is_flagged": entry.is_flagged,
+        "vitals_data": entry.submission.answers if entry.submission else {}
+    }
+
+async def get_recent_clinical_notes(db: AsyncSession, *, user_id: uuid.UUID) -> dict:
+    stmt = select(ClinicalNote).where(ClinicalNote.patient_user_id == user_id).order_by(ClinicalNote.created_at.desc()).limit(3)
+    notes = (await db.execute(stmt)).scalars().all()
+    if not notes: return {"error": "No clinical notes found"}
+    return {
+        "notes": [{"date": n.created_at.isoformat(), "message": n.message} for n in notes]
+    }
+
+async def get_mental_health_score(db: AsyncSession, *, user_id: uuid.UUID) -> dict:
+    stmt = select(EpdsScreening).where(EpdsScreening.user_id == user_id).order_by(EpdsScreening.created_at.desc()).limit(1)
+    epds = (await db.execute(stmt)).scalars().first()
+    if not epds: return {"error": "No EPDS screening found"}
+    return {
+        "date": epds.created_at.isoformat(),
+        "total_score": epds.total_score,
+        "risk_level": epds.risk_level.value,
+        "is_self_harm_flagged": epds.is_self_harm_flagged
+    }
+
+async def get_preferred_facility_details(db: AsyncSession, *, user_id: uuid.UUID) -> dict:
+    profile = await profile_repository.get_by_user_id(db, user_id)
+    if not profile or not profile.preferred_facility_id:
+        return {"error": "No preferred facility selected"}
+        
+    stmt = select(Facility).where(Facility.id == profile.preferred_facility_id)
+    facility = (await db.execute(stmt)).scalars().first()
+    if not facility: return {"error": "Facility details not found"}
+    
+    return {
+        "name": facility.name,
+        "type": facility.type.value,
+        "phone_number": facility.phone_number,
+        "address": facility.address,
+        "services": facility.services_offered
+    }
 
 TOOLS_SCHEMA = [
     {
@@ -223,6 +277,38 @@ TOOLS_SCHEMA = [
             "parameters": {"type": "object", "properties": {}},
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_recent_vitals",
+            "description": "Get the mother's most recently logged vitals (e.g. blood pressure, weight, heart rate).",
+            "parameters": {"type": "object", "properties": {}},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_recent_clinical_notes",
+            "description": "Get the most recent notes left by the mother's clinician or doctor.",
+            "parameters": {"type": "object", "properties": {}},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_mental_health_score",
+            "description": "Get the mother's latest EPDS mental health screening score.",
+            "parameters": {"type": "object", "properties": {}},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_preferred_facility_details",
+            "description": "Get the contact details and services of the mother's preferred hospital/clinic.",
+            "parameters": {"type": "object", "properties": {}},
+        },
+    }
 ]
 
 TOOL_DISPATCH = {
@@ -234,6 +320,10 @@ TOOL_DISPATCH = {
     "get_postpartum_status": get_postpartum_status,
     "get_cycle_summary": get_cycle_summary,
     "get_nutrition_guidance": get_nutrition_guidance,
+    "get_recent_vitals": get_recent_vitals,
+    "get_recent_clinical_notes": get_recent_clinical_notes,
+    "get_mental_health_score": get_mental_health_score,
+    "get_preferred_facility_details": get_preferred_facility_details,
 }
 
 async def execute_tool(name: str, db: AsyncSession, *, user_id: uuid.UUID) -> dict:
