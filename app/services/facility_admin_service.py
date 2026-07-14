@@ -220,6 +220,7 @@ async def get_clinician_workloads(db: AsyncSession, facility_id: uuid.UUID) -> l
         ))
     return results
 
+
 async def get_staff(db: AsyncSession, facility_id: uuid.UUID) -> list[StaffMember]:
     stmt = select(User).where(User.role.in_([UserRole.CLINICIAN, UserRole.FACILITY_ADMIN]))
     res = await db.execute(stmt)

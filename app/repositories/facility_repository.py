@@ -28,3 +28,11 @@ async def update(db: AsyncSession, facility: Facility, data: dict) -> Facility:
     await db.flush()
     await db.refresh(facility)
     return facility
+
+
+async def get_facilities(db: AsyncSession, search: str | None = None) -> list[Facility]:
+    stmt = select(Facility)
+    if search:
+        stmt = stmt.where(Facility.name.ilike(f"%{search}%"))
+    result = await db.execute(stmt)
+    return list(result.scalars().all())
