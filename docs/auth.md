@@ -115,11 +115,33 @@ Authenticates a user and returns access + refresh tokens.
   "data": {
     "access_token": "eyJhbGciOiJIUzI1NiIs...",
     "refresh_token": "eyJhbGciOiJIUzI1NiIs...",
-    "token_type": "bearer"
+    "token_type": "bearer",
+    "user_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+    "staff_memberships": null
   },
   "meta": {}
 }
 ```
+
+| Field | Type | Notes |
+|---|---|---|
+| `access_token` | string | |
+| `refresh_token` | string | |
+| `token_type` | string | Always `"bearer"` |
+| `user_id` | uuid | |
+| `staff_memberships` | array \| null | Only populated when `role` is `CLINICIAN` or `FACILITY_ADMIN`. `null` for `USER` accounts. See shape below. |
+
+**`staff_memberships` item shape**
+```json
+{
+  "facility_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+  "facility_name": "Kilifi County Hospital",
+  "role": "CLINICIAN",
+  "status": "ACTIVE"
+}
+```
+
+If the user has a staff invite in `INVITE_PENDING` status at the time of login, it is automatically flipped to `ACTIVE` (and `joined_at` is stamped) as part of this call.
 
 **Token lifetimes**
 - `access_token` — 7 days
@@ -153,11 +175,15 @@ Issues a new access token using a valid refresh token.
   "data": {
     "access_token": "eyJhbGciOiJIUzI1NiIs...",
     "refresh_token": "eyJhbGciOiJIUzI1NiIs...",
-    "token_type": "bearer"
+    "token_type": "bearer",
+    "user_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+    "staff_memberships": null
   },
   "meta": {}
 }
 ```
+
+Note: `staff_memberships` is always `null` on refresh (it is only computed during `/login`), even for clinician/facility-admin accounts.
 
 **Errors**
 
@@ -234,6 +260,41 @@ Authorization: Bearer <access_token>
 
 ---
 
+## GET `/me/landing-summary` 🔒
+
+Post-login landing summary for the currently authenticated user — active alert count, active labour session count, and pending referral count. Intended for clinicians/facility admins to populate their dashboard immediately after login.
+
+**Headers**
+```
+Authorization: Bearer <access_token>
+X-Facility-Context: <facility_id>   (optional)
+```
+
+If `X-Facility-Context` is provided and is a valid UUID, counts are scoped to that facility. If omitted or not a valid UUID, it is silently ignored and counts are unscoped.
+
+**Response `200 OK`**
+```json
+{
+  "success": true,
+  "message": "Operation successful",
+  "data": {
+    "activeAlertCount": 3,
+    "activeLabourSessionCount": 1,
+    "pendingReferralCount": 2
+  },
+  "meta": {}
+}
+```
+
+**Errors**
+
+| Status | Code | Trigger |
+|---|---|---|
+| `401` | `UNAUTHORIZED` | Missing, expired, or invalid access token |
+| `401` | `UNAUTHORIZED` | User account is inactive |
+
+---
+
 ## Standard Error Response Shape
 
 All errors follow this envelope:
@@ -264,3 +325,5 @@ All errors follow this envelope:
 | `role` | `USER`, `CLINICIAN`, `FACILITY_ADMIN` |
 | `gender` | `MALE`, `FEMALE` |
 | `account_type` | `FULL`, `SMS_ONLY` *(set automatically by the server — not accepted in requests)* |
+| `staff_memberships[].role` | `CLINICIAN`, `FACILITY_ADMIN` |
+| `staff_memberships[].status` | `ACTIVE`, `INVITE_PENDING`, `DEACTIVATED` |
