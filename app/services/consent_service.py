@@ -45,3 +45,58 @@ async def has_active_consent(db: AsyncSession, user_id: uuid.UUID, facility_id: 
     )
     result = await db.execute(stmt)
     return result.scalar_one_or_none() is not None
+
+async def has_ai_consent(db: AsyncSession, user_id: uuid.UUID) -> bool:
+    """Check if the user has active consent for the AI Companion."""
+    stmt = select(Consent).where(
+        Consent.user_id == user_id,
+        Consent.grantee_id == "AI_COMPANION",
+        Consent.active == True
+    )
+    result = await db.execute(stmt)
+    return result.scalar_one_or_none() is not None
+
+async def grant_ai_consent(db: AsyncSession, user_id: uuid.UUID) -> Consent:
+    """Grant consent for the AI Companion to access user information."""
+    stmt = select(Consent).where(
+        Consent.user_id == user_id,
+        Consent.grantee_id == "AI_COMPANION",
+        Consent.active == True
+    )
+    result = await db.execute(stmt)
+    existing = result.scalar_one_or_none()
+    
+    if existing:
+        return existing
+        
+    consent = Consent(
+        user_id=user_id,
+        consent_type="AUTO_SHARE",
+        grantee_id="AI_COMPANION",
+        grantee_name="AI Companion",
+        active=True
+    )
+    db.add(consent)
+    await db.commit()
+    await db.refresh(consent)
+    return consent
+
+async def revoke_ai_consent(db: AsyncSession, user_id: uuid.UUID) -> Consent:
+    """Revoke consent for the AI Companion."""
+    stmt = select(Consent).where(
+        Consent.user_id == user_id,
+        Consent.grantee_id == "AI_COMPANION",
+        Consent.active == True
+    )
+    result = await db.execute(stmt)
+    consent = result.scalar_one_or_none()
+    
+    if not consent:
+        raise NotFoundError(message="Active AI consent not found")
+        
+    consent.active = False
+    consent.revoked_at = func.now()
+    
+    await db.commit()
+    await db.refresh(consent)
+    return consent

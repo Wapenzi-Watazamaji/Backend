@@ -184,7 +184,11 @@ Restricting to `UserRole.USER` mirrors the pattern already established by `requi
 
 **Client → Server**
 ```json
+// To send a message
 { "type": "user_message", "content": "Is it normal to have swollen feet at 32 weeks?", "client_message_id": "c-1a2b" }
+
+// To respond to a consent request
+{ "type": "provide_consent", "consent": true }
 ```
 
 **Server → Client**, a sequence of typed events per turn:
@@ -192,6 +196,7 @@ Restricting to `UserRole.USER` mirrors the pattern already established by `requi
 | `type` | Payload | Meaning |
 |---|---|---|
 | `connected` | `{ conversation_id }` | Handshake ack, conversation created/resumed |
+| `consent_required` | `{}` | Emitted if the mother's sharing preference requires consent validation before context access |
 | `token` | `{ delta }` | One streamed text chunk of the answer |
 | `tool_call_started` | `{ tool_name }` | Model is fetching the mother's data (drives a UI "checking your records…" indicator) |
 | `tool_call_finished` | `{ tool_name }` | Fetch complete (result itself is never sent to the client — only used server-side to ground the answer) |
@@ -201,12 +206,24 @@ Restricting to `UserRole.USER` mirrors the pattern already established by `requi
 
 Streaming matters here for the same reason it matters in the video flow: perceived latency. A mother asking a question should see the first words appear well under a second, even if the full answer takes longer to complete.
 
+### 4.2a Data Sharing Consent Flow
+
+Access to backend patient records (context tools) is gated dynamically based on the mother's `emergency_sharing_preference` configured in her profile:
+- **`ALWAYS_SHARE`**: The connection proceeds directly to the active chat session (`connected` event is sent, and context tools are enabled for the duration of the session).
+- **`NEVER_SHARE`** or **`ASK_FIRST`**: 
+  - The server sends a `consent_required` payload.
+  - The connection blocks until the client responds with a `provide_consent` payload.
+  - If `consent` is `true`, context tools are enabled for the session.
+  - If `consent` is `false`, context tools are disabled, and the AI routes to a general-knowledge conversation layout with no backend context.
+  - If the client bypasses the handshake and sends a standard `user_message` directly, it defaults to refusing consent (`consent: false`) and processes the message as a general query.
+
 ### 4.3 Turn sequence
 
 ```
 Flutter              FastAPI (chat_routes)         Azure OpenAI            Context Tool Layer / DB
   |  user_message         |                              |                         |
   |----------------------->|                              |                         |
+  |                       | (If consented):              |                         |
   |                       | append to ChatMessage(USER)  |                         |
   |                       | stream chat.completions ----->|                         |
   |                       |    (messages + tools[])      |                         |
@@ -215,6 +232,11 @@ Flutter              FastAPI (chat_routes)         Azure OpenAI            Conte
   |                       |<----------------------------------------------------    |
   |                       | append tool result message   |                         |
   |                       | stream chat.completions ----->|  (continuation)         |
+  |                       |                              |                         |
+  |                       | (If NOT consented):          |                         |
+  |                       | bypass orchestrator/tools    |                         |
+  |                       | stream chat.completions ----->| (general responder only)|
+  |                       |                              |                         |
   |  token, token, token   |<---- delta: content ----------|                         |
   |<-----------------------|                              |                         |
   |                       | append to ChatMessage(ASSISTANT)                       |
@@ -222,7 +244,7 @@ Flutter              FastAPI (chat_routes)         Azure OpenAI            Conte
   |<-----------------------|                              |                         |
 ```
 
-Standard OpenAI-style tool-calling loop: stream until `finish_reason == "tool_calls"`, execute the requested tool(s) server-side against Postgres, append the tool result as a `role: tool` message, and re-invoke the model. Repeat until `finish_reason == "stop"`, streaming text deltas to the client throughout except for the tool-execution gap (typically under 200ms).
+Standard OpenAI-style tool-calling loop (if consented): stream until `finish_reason == "tool_calls"`, execute the requested tool(s) server-side against Postgres, append the tool result as a `role: tool` message, and re-invoke the model. Repeat until `finish_reason == "stop"`, streaming text deltas to the client throughout except for the tool-execution gap (typically under 200ms). If consent was refused, the tool-calling loop is bypassed entirely, avoiding execution of any context tools and prompting general advice.
 
 ### 4.4 Connection & rate-limit state in Redis
 

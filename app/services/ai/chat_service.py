@@ -31,6 +31,7 @@ class ChatSessionHandler:
         self.db = db
         self.requested_conversation_id = conversation_id
         self.conversation: Optional[ChatConversation] = None
+        self.has_context_permission = False
         
         # Instantiate Azure OpenAI client
         self.client = AsyncAzureOpenAI(
@@ -43,6 +44,30 @@ class ChatSessionHandler:
         try:
             self.conversation = await self._get_or_create_conversation()
             await self.websocket.send_json({"type": "connected", "conversation_id": str(self.conversation.id)})
+            
+            # Check sharing preference
+            from app.repositories import profile_repository
+            from app.models.profile import SharingPreference
+            
+            profile = await profile_repository.get_by_user_id(self.db, self.user.id)
+            if profile and profile.emergency_sharing_preference == SharingPreference.ALWAYS_SHARE:
+                self.has_context_permission = True
+            else:
+                # ASK_FIRST or NEVER_SHARE
+                await self.websocket.send_json({"type": "consent_required"})
+                consent_received = False
+                while not consent_received:
+                    data = await self.websocket.receive_json()
+                    if data.get("type") == "provide_consent":
+                        self.has_context_permission = bool(data.get("consent"))
+                        consent_received = True
+                    elif data.get("type") == "user_message":
+                        # If user sends a message without consenting, default to no context
+                        self.has_context_permission = False
+                        consent_received = True
+                        content = data.get("content")
+                        if content:
+                            await self._handle_user_message(content)
             
             while True:
                 data = await self.websocket.receive_json()
@@ -99,45 +124,46 @@ class ChatSessionHandler:
         history = (await self.db.execute(stmt)).scalars().all()
         
         # --- PHASE 1: ORCHESTRATOR ---
-        orch_messages = [{"role": "system", "content": ORCHESTRATOR_PROMPT}]
-        for m in history:
-            role = m.role.value.lower()
-            if role == "tool": continue # Hide raw DB output from Orchestrator reasoning
-            orch_messages.append({"role": role, "content": m.content})
-            
-        orch_response = await self.client.chat.completions.create(
-            model=settings.AZURE_OPENAI_CHAT_DEPLOYMENT,
-            messages=orch_messages,
-            tools=TOOLS_SCHEMA,
-            stream=False
-        )
-        orch_msg = orch_response.choices[0].message
-        
-        # --- PHASE 2: TOOL EXECUTION ---
         tool_results_context = []
         tool_calls_record = []
         
-        if orch_msg.tool_calls:
-            for tc in orch_msg.tool_calls:
-                tool_name = tc.function.name
-                await self.websocket.send_json({"type": "tool_call_started", "tool_name": tool_name})
+        if self.has_context_permission:
+            orch_messages = [{"role": "system", "content": ORCHESTRATOR_PROMPT}]
+            for m in history:
+                role = m.role.value.lower()
+                if role == "tool": continue # Hide raw DB output from Orchestrator reasoning
+                orch_messages.append({"role": role, "content": m.content})
                 
-                result = await execute_tool(tool_name, self.db, user_id=self.user.id)
-                result_str = json.dumps(result)
-                
-                tool_results_context.append(f"{tool_name} returned: {result_str}")
-                tool_calls_record.append({"name": tool_name})
-                
-                await self.websocket.send_json({"type": "tool_call_finished", "tool_name": tool_name})
-                
-            db_tool_msg = ChatMessage(
-                conversation_id=self.conversation.id, 
-                role=ChatRole.TOOL, 
-                content=" | ".join(tool_results_context),
-                tool_calls=tool_calls_record
+            orch_response = await self.client.chat.completions.create(
+                model=settings.AZURE_OPENAI_CHAT_DEPLOYMENT,
+                messages=orch_messages,
+                tools=TOOLS_SCHEMA,
+                stream=False
             )
-            self.db.add(db_tool_msg)
-            await self.db.commit()
+            orch_msg = orch_response.choices[0].message
+            
+            # --- PHASE 2: TOOL EXECUTION ---
+            if orch_msg.tool_calls:
+                for tc in orch_msg.tool_calls:
+                    tool_name = tc.function.name
+                    await self.websocket.send_json({"type": "tool_call_started", "tool_name": tool_name})
+                    
+                    result = await execute_tool(tool_name, self.db, user_id=self.user.id)
+                    result_str = json.dumps(result)
+                    
+                    tool_results_context.append(f"{tool_name} returned: {result_str}")
+                    tool_calls_record.append({"name": tool_name})
+                    
+                    await self.websocket.send_json({"type": "tool_call_finished", "tool_name": tool_name})
+                    
+                db_tool_msg = ChatMessage(
+                    conversation_id=self.conversation.id, 
+                    role=ChatRole.TOOL, 
+                    content=" | ".join(tool_results_context),
+                    tool_calls=tool_calls_record
+                )
+                self.db.add(db_tool_msg)
+                await self.db.commit()
 
         # --- PHASE 3: RESPONDER ---
         resp_messages = [{"role": "system", "content": RESPONDER_PROMPT}]
