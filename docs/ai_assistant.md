@@ -208,14 +208,13 @@ Streaming matters here for the same reason it matters in the video flow: perceiv
 
 ### 4.2a Data Sharing Consent Flow
 
-Access to backend patient records (context tools) is gated dynamically based on the mother's `emergency_sharing_preference` configured in her profile:
-- **`ALWAYS_SHARE`**: The connection proceeds directly to the active chat session (`connected` event is sent, and context tools are enabled for the duration of the session).
-- **`NEVER_SHARE`** or **`ASK_FIRST`**: 
-  - The server sends a `consent_required` payload.
-  - The connection blocks until the client responds with a `provide_consent` payload.
-  - If `consent` is `true`, context tools are enabled for the session.
-  - If `consent` is `false`, context tools are disabled, and the AI routes to a general-knowledge conversation layout with no backend context.
-  - If the client bypasses the handshake and sends a standard `user_message` directly, it defaults to refusing consent (`consent: false`) and processes the message as a general query.
+Access to backend patient records (context tools) is explicitly gated based on persistent AI Companion consent, recorded in the database.
+- **Granting Consent**: The client must call `POST /api/v1/ai/consent` to grant the AI Companion access to the user's data. This creates an explicit `Consent` record with `grantee_id="AI_COMPANION"`.
+- **Session Handling**: 
+  - The server checks for this active consent (`has_ai_consent`) during `GET /api/v1/ai/context-summary` and when initiating websocket sessions.
+  - If active consent exists, context tools are enabled for the session.
+  - If consent does not exist or has been revoked (via `DELETE /api/v1/ai/consent`), context tools are disabled, and the AI routes to a general-knowledge conversation layout with no backend context.
+- **Revoking Consent**: The user can revoke access anytime via `DELETE /api/v1/ai/consent`, immediately disabling context access for future interactions.
 
 ### 4.3 Turn sequence
 

@@ -2,10 +2,61 @@
 
 This document outlines the endpoints available for the AI Chat Companion and Tavus Video Avatar integrations. All routes require standard Bearer token authentication via JWT.
 
-## 1. Tavus Video Avatar Integration
+## 1. Data Access Consent
+
+Before the AI Companion can access backend context (for both the Tavus Video Avatar and Text Chat), the client must explicitly grant consent. If no consent is granted, the AI returns general responses and `context-summary` returns an empty string or generic message.
+
+### Grant Consent
+Grants the AI Companion persistent access to the mother's context.
+
+**HTTP Request:**
+`POST /api/v1/ai/consent`
+
+**Headers:**
+`Authorization: Bearer <token>`
+
+**Response (200 OK):**
+```json
+{
+  "status": "success",
+  "message": "AI Companion consent granted.",
+  "data": {
+    "id": "e45a2c13-bed2-422a-f7e2-fc7f3a4b5c6d",
+    "user_id": "a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d",
+    "consent_type": "AUTO_SHARE",
+    "grantee_id": "AI_COMPANION",
+    "grantee_name": "AI Companion",
+    "active": true,
+    "granted_at": "2026-07-17T09:30:00Z",
+    "revoked_at": null
+  }
+}
+```
+
+### Revoke Consent
+Revokes previously granted consent.
+
+**HTTP Request:**
+`DELETE /api/v1/ai/consent`
+
+**Headers:**
+`Authorization: Bearer <token>`
+
+**Response (200 OK):**
+```json
+{
+  "status": "success",
+  "message": "AI Companion consent revoked.",
+  "data": { ... }
+}
+```
+
+---
+
+## 2. Tavus Video Avatar Integration
 
 ### Get Context Summary
-Retrieves a highly condensed text summary of the mother's current pregnancy, risk score, upcoming visits, and profile preferences. This is meant to be fetched by the client and passed directly into the Tavus API as the `conversational_context`.
+Retrieves a highly condensed text summary of the mother's current pregnancy, risk score, upcoming visits, and profile preferences. This is meant to be fetched by the client and passed directly into the Tavus API as the `conversational_context`. Requires active consent granted via `/api/v1/ai/consent`.
 
 **HTTP Request:**
 `GET /api/v1/ai/context-summary`
@@ -22,7 +73,7 @@ Retrieves a highly condensed text summary of the mother's current pregnancy, ris
 
 ---
 
-## 2. Text Chat Companion (WebSocket)
+## 3. Text Chat Companion (WebSocket)
 
 ### Connect to Chat
 Opens a persistent WebSocket connection to stream chat messages directly from Azure OpenAI.
@@ -70,7 +121,7 @@ The server streams the response back in chunks, along with metadata about tool e
 
 ---
 
-## 3. Chat History & Management
+## 4. Chat History & Management
 
 ### List Past Conversations
 Retrieve a list of the user's past AI chat sessions, ordered by the most recently active.
