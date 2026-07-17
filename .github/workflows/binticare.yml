@@ -94,6 +94,15 @@ jobs:
             DB_PASSWORD=${{ secrets.DB_PASSWORD }}
             REDIS_URL=redis://:${{ secrets.REDIS_PASSWORD }}@redis:6379/0
             REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
+            AT_API_KEY=${{ secrets.AT_API_KEY }}
+            AT_SENDER_ID=${{ secrets.AT_SENDER_ID }}
+            AT_USERNAME=${{ secrets.AT_USERNAME }}
+            AZURE_OPENAI_API_KEY=${{ secrets.AZURE_OPENAI_API_KEY }}
+            AZURE_OPENAI_API_VERSION=${{ secrets.AZURE_OPENAI_API_VERSION }}
+            AZURE_OPENAI_CHAT_DEPLOYMENT=${{ secrets.AZURE_OPENAI_CHAT_DEPLOYMENT }}
+            AZURE_OPENAI_EMBEDDING_DEPLOYMENT=${{ secrets.AZURE_OPENAI_EMBEDDING_DEPLOYMENT }}
+            AZURE_OPENAI_ENDPOINT=${{ secrets.AZURE_OPENAI_ENDPOINT }}
+            FIREBASE_CREDENTIALS_PATH=${{ secrets.FIREBASE_CREDENTIALS_PATH }}
             ENVEOF
             chmod 600 .env
 
