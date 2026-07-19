@@ -1,6 +1,6 @@
 import uuid
 from typing import Optional, List, Dict, Any
-from fastapi import APIRouter, Depends, status, Query
+from fastapi import APIRouter, Depends, status, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api import deps
@@ -108,9 +108,19 @@ async def send_templated_sms(
     summary="Receive inbound SMS check-ins (webhook)"
 )
 async def inbound_sms_webhook(
-    webhook: SmsInboundWebhook,
+    request: Request,
     db: AsyncSession = Depends(deps.get_db),
 ):
+    form_data = await request.form()
+    
+    # Africa's Talking sends x-www-form-urlencoded
+    webhook = SmsInboundWebhook(
+        **{
+            "from": form_data.get("from", ""),
+            "text": form_data.get("text", ""),
+            "linkedReminderId": form_data.get("linkId", "")
+        }
+    )
     await notification_service.inbound_sms_reply(db, webhook)
     return create_success_response(data=None)
     
