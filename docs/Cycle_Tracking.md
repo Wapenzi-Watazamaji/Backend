@@ -185,6 +185,8 @@ Authorization: Bearer <access_token>
       "symptoms": ["CRAMPS", "BLOATING"],
       "notes": "Feeling a bit tired today"
     },
+    "client_created_at": "2026-07-01T00:00:00Z",
+    "symptom_date": "2026-07-01",
     "created_at": "2026-07-01T07:25:17Z"
   },
   "meta": {}
@@ -228,7 +230,13 @@ Authorization: Bearer <access_token>
     {
       "id": "92269422-2492-4f6d-ac9f-1de67890fca3",
       "context": "CYCLE_SYMPTOM",
-      "answers": { ... }
+      "answers": {
+        "symptoms": ["CRAMPS", "BLOATING"],
+        "notes": "Feeling a bit tired today"
+      },
+      "client_created_at": "2026-07-01T00:00:00Z",
+      "symptom_date": "2026-07-01",
+      "created_at": "2026-07-01T07:25:17Z"
     }
   ],
   "meta": {

@@ -41,10 +41,19 @@ class FormSubmissionRead(BaseModel):
     answers: Any
     client_generated_id: Optional[str] = None
     client_created_at: Optional[datetime] = None
+    symptom_date: Optional[date] = None  # Friendly date field derived from client_created_at
     created_at: datetime
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+    @classmethod
+    def model_validate(cls, obj, *args, **kwargs):
+        instance = super().model_validate(obj, *args, **kwargs)
+        # Populate symptom_date from client_created_at for convenience
+        if instance.client_created_at and instance.symptom_date is None:
+            instance.symptom_date = instance.client_created_at.date()
+        return instance
 
 
 class CycleEntryCreate(BaseModel):

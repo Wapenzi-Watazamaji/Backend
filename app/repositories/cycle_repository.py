@@ -1,9 +1,9 @@
 import uuid
-from datetime import date
+from datetime import date, datetime, timezone
 from typing import Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_
+from sqlalchemy import select, and_, func
 from sqlalchemy.orm import selectinload
 
 from app.models.cycle import (
@@ -109,9 +109,9 @@ async def list_cycle_entries(
     if to_date:
         filters.append(CycleEntry.start_date <= to_date)
 
-    count_stmt = select(CycleEntry).where(and_(*filters))
+    count_stmt = select(func.count()).select_from(CycleEntry).where(and_(*filters))
     count_result = await db.execute(count_stmt)
-    total = len(count_result.scalars().all())
+    total = count_result.scalar_one()
 
     stmt = (
         select(CycleEntry)
@@ -207,14 +207,22 @@ async def get_symptom_submissions(
         FormSubmission.context == FormContext.CYCLE_SYMPTOM,
     ]
 
-    count_stmt = select(FormSubmission).where(and_(*filters))
+    # Apply date filters against client_created_at (the user's symptom date)
+    if from_date:
+        from_dt = datetime(from_date.year, from_date.month, from_date.day, tzinfo=timezone.utc)
+        filters.append(FormSubmission.client_created_at >= from_dt)
+    if to_date:
+        to_dt = datetime(to_date.year, to_date.month, to_date.day, 23, 59, 59, tzinfo=timezone.utc)
+        filters.append(FormSubmission.client_created_at <= to_dt)
+
+    count_stmt = select(func.count()).select_from(FormSubmission).where(and_(*filters))
     count_result = await db.execute(count_stmt)
-    total = len(count_result.scalars().all())
+    total = count_result.scalar_one()
 
     stmt = (
         select(FormSubmission)
         .where(and_(*filters))
-        .order_by(FormSubmission.created_at.desc())
+        .order_by(FormSubmission.client_created_at.desc().nulls_last(), FormSubmission.created_at.desc())
         .offset((page - 1) * page_size)
         .limit(page_size)
     )

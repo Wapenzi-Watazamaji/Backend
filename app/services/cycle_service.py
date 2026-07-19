@@ -213,12 +213,16 @@ async def create_symptom(db: AsyncSession, user_id: uuid.UUID, data):
 
     validate_answers_against_template(template, data.answers)
 
+    # Convert the symptom date to a timezone-aware datetime for storage
+    symptom_datetime = datetime(data.date.year, data.date.month, data.date.day, tzinfo=timezone.utc)
+
     submission_data = {
         "template_id": template.id,
         "user_id": user_id,
         "context": FormContext.CYCLE_SYMPTOM,
         "answers": data.answers,
         "client_generated_id": data.clientGeneratedId,
+        "client_created_at": symptom_datetime,  # Persist the user-provided symptom date
     }
     return await cycle_repository.create_submission(db, submission_data)
 
