@@ -118,8 +118,8 @@ async def inbound_sms_reply(db: AsyncSession, webhook: SmsInboundWebhook) -> Non
             await send_sms(webhook.from_number, reply_msg)
             return
 
-    # 3. GET FACILITIES intent
-    if text_clean.startswith("get facilities") or text_clean.startswith("get facility"):
+    # 3a. GET FACILITIES intent (Listing)
+    if text_clean.startswith("get facilities"):
         from app.models.facility import Facility
         from sqlalchemy import select
         from app.utils.sms import send_sms
@@ -141,9 +141,37 @@ async def inbound_sms_reply(db: AsyncSession, webhook: SmsInboundWebhook) -> Non
             fac_list = []
             for f in facilities:
                 fac_list.append(f"{f.name} in {f.county} (ID: {str(f.id)[:8]})")
-            msg = "BintiCare Available Facilities:\n" + "\n".join(fac_list) + "\nReply with REGISTER FACILITY <name_or_id>"
+            msg = "BintiCare Available Facilities:\n" + "\n".join(fac_list) + "\nReply with GET FACILITY <name> for details, or REGISTER FACILITY <name>."
             
         await send_sms(webhook.from_number, msg)
+        return
+
+    # 3b. GET FACILITY intent (Specific Details)
+    if text_clean.startswith("get facility"):
+        from app.models.facility import Facility
+        from sqlalchemy import select, cast, String
+        from app.utils.sms import send_sms
+        
+        parts = webhook.text.strip().split(None, 2)
+        if len(parts) < 3:
+            await send_sms(webhook.from_number, "BintiCare: Please specify the facility name or ID. Example: GET FACILITY Pumwani")
+            return
+            
+        target = parts[2]
+        stmt = select(Facility).where(
+            (Facility.name.ilike(f"%{target}%")) | 
+            (cast(Facility.id, String).like(f"{target}%"))
+        )
+        res = await db.execute(stmt)
+        facility = res.scalar_one_or_none()
+        
+        if not facility:
+            await send_sms(webhook.from_number, f"BintiCare: Facility '{target}' not found. Reply with GET FACILITIES to search.")
+        else:
+            services = ", ".join(facility.services_offered) if facility.services_offered else "General Care"
+            phone = facility.phone_number or "N/A"
+            msg = f"BintiCare Facility Profile:\n{facility.name}\nCounty: {facility.county}\nPhone: {phone}\nServices: {services}\n\nTo register here, reply: REGISTER FACILITY {facility.name}"
+            await send_sms(webhook.from_number, msg)
         return
 
     # 4. REGISTER FACILITY intent
@@ -253,6 +281,63 @@ async def inbound_sms_reply(db: AsyncSession, webhook: SmsInboundWebhook) -> Non
             msg = f"BintiCare: Your request for a personal doctor at {fac_name} is pending clinician assignment. We will alert you once assigned."
             await send_sms(webhook.from_number, msg)
             
+        return
+
+    # 5a. HELP/EMERGENCY intent
+    if text_clean in ["help", "emergency", "danger", "sos"]:
+        from app.models.profile import Profile
+        from app.models.emergency import EmergencyRequest, EmergencyStatus
+        from app.models.facility import Facility
+        from app.utils.sms import send_sms
+        from app.repositories import notification_repository
+        
+        profile = await profile_repository.get_by_user_id(db, user.id)
+        if profile and profile.preferred_facility_id:
+            em_req = EmergencyRequest(
+                patient_id=user.id,
+                facility_id=profile.preferred_facility_id,
+                status=EmergencyStatus.PENDING,
+                notes="Triggered via SMS Panic Button"
+            )
+            db.add(em_req)
+            await db.commit()
+            
+            facility = await db.get(Facility, profile.preferred_facility_id)
+            fac_name = facility.name if facility else "your facility"
+            
+            msg = f"BintiCare EMERGENCY: We have notified {fac_name}. Please head to the hospital immediately or call their emergency line."
+            await send_sms(webhook.from_number, msg)
+            
+            try:
+                alert_msg = f"EMERGENCY ALERT: Patient {user.full_name} ({user.phone_number}) triggered an SOS via SMS."
+                if profile.personal_doctor_id:
+                    await notification_repository.create(db, {
+                        "user_id": profile.personal_doctor_id,
+                        "category": "EMERGENCY",
+                        "title": "EMERGENCY ALERT",
+                        "body": alert_msg,
+                        "is_read": False,
+                        "related_entity_type": "EMERGENCY",
+                        "related_entity_id": str(em_req.id)
+                    })
+            except Exception as e:
+                logger.warning(f"Failed to send emergency alert to doctor: {e}")
+        else:
+            msg = "BintiCare EMERGENCY: You are not registered to a facility. Please go to the nearest hospital immediately or call 999."
+            await send_sms(webhook.from_number, msg)
+            
+        return
+
+    # 5b. MENU/TIPS intent
+    if text_clean in ["menu", "tips", "info"]:
+        from app.utils.sms import send_sms
+        
+        if text_clean == "tips":
+            msg = "BintiCare Tips: Eat iron-rich foods like spinach and beans. Drink plenty of water. Rest when tired. Reply MENU for more options."
+        else:
+            msg = "BintiCare Menu:\n1. Reply VITALS <bp> <weight> to log vitals\n2. Reply HELP for emergencies\n3. Reply TIPS for pregnancy advice\n4. Reply GET FACILITIES to search hospitals"
+            
+        await send_sms(webhook.from_number, msg)
         return
 
     # 6. Determine context & linked reminder
