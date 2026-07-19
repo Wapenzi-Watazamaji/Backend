@@ -25,12 +25,12 @@ async def enroll_patient_manually(db: AsyncSession, facility_id: uuid.UUID, clin
     
     if profile:
         profile.preferred_facility_id = facility_id
-        profile.personal_doctor_id = clinician_id
+        profile.personal_doctor_id = None
     else:
         profile = Profile(
             user_id=new_user.id,
             preferred_facility_id=facility_id,
-            personal_doctor_id=clinician_id
+            personal_doctor_id=None
         )
         db.add(profile)
         
