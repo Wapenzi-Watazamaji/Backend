@@ -353,13 +353,15 @@ async def inbound_sms_reply(db: AsyncSession, webhook: SmsInboundWebhook) -> Non
     if not webhook.linked_reminder_id:
         from app.utils.sms import send_sms
         
+        logger.info(f"Unrecognized SMS intent from {webhook.from_number}: '{webhook.text}'")
+        
         msg = (
             "BintiCare: Sorry, we didn't recognise that command.\n"
             "Reply MENU to see available options, or try:\n"
-            "• VITALS <bp> <weight>\n"
-            "• GET FACILITIES\n"
-            "• REQUEST DOCTOR\n"
-            "• HELP (for emergencies)"
+            "- VITALS <bp> <weight>\n"
+            "- GET FACILITIES\n"
+            "- REQUEST DOCTOR\n"
+            "- HELP (for emergencies)"
         )
         await send_sms(webhook.from_number, msg)
         return
