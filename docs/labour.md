@@ -1,6 +1,6 @@
 # Labour & Birth Monitor Module — API Reference
 
-**Base path:** `/api/v1/labour`
+**Base path:** `/api/v1/labour/`
 **Authentication:** All endpoints require a valid Bearer token 🔒
 **Clinician Access:** Endpoints that write to the database require a `CLINICIAN` or `FACILITY_ADMIN` role ⚕️.
 
