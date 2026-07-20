@@ -86,6 +86,9 @@ async def inbound_sms_reply(db: AsyncSession, webhook: SmsInboundWebhook) -> Non
             reply_msg = "BintiCare: Invalid format. Please reply in this format: vitals <blood_pressure> <weight>. Example: vitals 120/80 65"
             await send_sms(webhook.from_number, reply_msg)
             return
+        
+        # Acknowledge immediately before heavy processing
+        await send_sms(webhook.from_number, "BintiCare: Recording your vitals, please wait...")
             
         # Create vitals entry using the pregnancy service
         from app.services import pregnancy_service
@@ -218,6 +221,9 @@ async def inbound_sms_reply(db: AsyncSession, webhook: SmsInboundWebhook) -> Non
         from sqlalchemy import select
         from app.utils.sms import send_sms
         
+        # Acknowledge immediately before heavy processing
+        await send_sms(webhook.from_number, "BintiCare: Processing your doctor request, please wait...")
+        
         profile = await profile_repository.get_by_user_id(db, user.id)
         if not profile or not profile.preferred_facility_id:
             await send_sms(webhook.from_number, "BintiCare: Please register with a facility first by replying: REGISTER FACILITY <name>")
@@ -291,6 +297,9 @@ async def inbound_sms_reply(db: AsyncSession, webhook: SmsInboundWebhook) -> Non
         from app.utils.sms import send_sms
         from app.repositories import notification_repository
         
+        # Acknowledge immediately — emergencies need instant feedback
+        await send_sms(webhook.from_number, "BintiCare: Your emergency request is being processed. Stay calm, help is on the way.")
+        
         profile = await profile_repository.get_by_user_id(db, user.id)
         if profile and profile.preferred_facility_id:
             em_req = EmergencyRequest(
@@ -337,6 +346,21 @@ async def inbound_sms_reply(db: AsyncSession, webhook: SmsInboundWebhook) -> Non
         else:
             msg = "BintiCare Menu:\n1. Reply VITALS <bp> <weight> to log vitals\n2. Reply HELP for emergencies\n3. Reply TIPS for pregnancy advice\n4. Reply GET FACILITIES to search hospitals"
             
+        await send_sms(webhook.from_number, msg)
+        return
+
+    # 5c. Unrecognized intent — notify user (unless it's a reminder-linked reply)
+    if not webhook.linked_reminder_id:
+        from app.utils.sms import send_sms
+        
+        msg = (
+            "BintiCare: Sorry, we didn't recognise that command.\n"
+            "Reply MENU to see available options, or try:\n"
+            "• VITALS <bp> <weight>\n"
+            "• GET FACILITIES\n"
+            "• REQUEST DOCTOR\n"
+            "• HELP (for emergencies)"
+        )
         await send_sms(webhook.from_number, msg)
         return
 
