@@ -344,12 +344,198 @@ async def inbound_sms_reply(db: AsyncSession, webhook: SmsInboundWebhook) -> Non
         if text_clean == "tips":
             msg = "BintiCare Tips: Eat iron-rich foods like spinach and beans. Drink plenty of water. Rest when tired. Reply MENU for more options."
         else:
-            msg = "BintiCare Menu:\n1. Reply VITALS <bp> <weight> to log vitals\n2. Reply HELP for emergencies\n3. Reply TIPS for pregnancy advice\n4. Reply GET FACILITIES to search hospitals"
+            msg = (
+                "BintiCare Menu:\n"
+                "1. VITALS <bp> <weight> - log vitals\n"
+                "2. STATUS - pregnancy summary\n"
+                "3. NEXT VISIT - upcoming appointment\n"
+                "4. MY DOCTOR - your doctor's info\n"
+                "5. EVENTS - facility events\n"
+                "6. GET FACILITIES - search hospitals\n"
+                "7. REQUEST DOCTOR - get assigned\n"
+                "8. HELP - emergencies\n"
+                "9. TIPS - pregnancy advice"
+            )
             
         await send_sms(webhook.from_number, msg)
         return
 
-    # 5c. Unrecognized intent — notify user (unless it's a reminder-linked reply)
+    # 6. STATUS intent — pregnancy snapshot
+    if text_clean == "status":
+        from app.utils.sms import send_sms
+        from app.repositories import pregnancy_repository
+        from datetime import date as date_type
+        
+        await send_sms(webhook.from_number, "BintiCare: Fetching your status...")
+        
+        profile = await profile_repository.get_by_user_id(db, user.id)
+        pregnancy = await pregnancy_repository.get_active_pregnancy(db, user.id)
+        
+        if not pregnancy:
+            await send_sms(webhook.from_number, "BintiCare: No active pregnancy on record. If you are pregnant, please register through the app or contact your facility.")
+            return
+        
+        # Calculate week and trimester
+        today = date_type.today()
+        days_since_lmp = (today - pregnancy.last_menstrual_period).days
+        week_number = days_since_lmp // 7
+        trimester = 1 if week_number <= 12 else (2 if week_number <= 27 else 3)
+        days_to_due = (pregnancy.due_date - today).days
+        
+        # Get risk level
+        risk_text = ""
+        try:
+            risk_score = await pregnancy_repository.get_latest_risk_score(db, pregnancy.id)
+            if risk_score:
+                risk_text = f"\nRisk Level: {risk_score.level.value}"
+        except Exception:
+            pass
+        
+        # Get assigned doctor
+        doc_text = ""
+        if profile and profile.personal_doctor_id:
+            doc = await db.get(User, profile.personal_doctor_id)
+            if doc:
+                doc_text = f"\nDoctor: Dr. {doc.full_name}"
+        
+        msg = (
+            f"BintiCare Status:\n"
+            f"Week {week_number} - Trimester {trimester}\n"
+            f"Due Date: {pregnancy.due_date.strftime('%d %b %Y')}\n"
+            f"Days to go: {days_to_due}"
+            f"{risk_text}"
+            f"{doc_text}"
+        )
+        await send_sms(webhook.from_number, msg)
+        return
+
+    # 7. NEXT VISIT intent — upcoming ANC appointment
+    if text_clean == "next visit":
+        from app.utils.sms import send_sms
+        from app.repositories import pregnancy_repository
+        from app.models.pregnancy import VisitStatus
+        from sqlalchemy import select
+        from datetime import datetime as dt
+        
+        pregnancy = await pregnancy_repository.get_active_pregnancy(db, user.id)
+        if not pregnancy:
+            await send_sms(webhook.from_number, "BintiCare: No active pregnancy on record. Please register through the app first.")
+            return
+        
+        # Find the next upcoming scheduled visit
+        from app.models.pregnancy import ScheduledVisit
+        stmt = (
+            select(ScheduledVisit)
+            .where(
+                ScheduledVisit.pregnancy_id == pregnancy.id,
+                ScheduledVisit.status == VisitStatus.SCHEDULED,
+                ScheduledVisit.scheduled_at >= dt.now()
+            )
+            .order_by(ScheduledVisit.scheduled_at)
+            .limit(1)
+        )
+        res = await db.execute(stmt)
+        visit = res.scalar_one_or_none()
+        
+        if visit:
+            visit_date = visit.scheduled_at.strftime("%A, %d %b %Y")
+            purpose = visit.purpose or visit.label or "Routine check-up"
+            
+            # Try to get facility name
+            fac_text = ""
+            if visit.facility_id:
+                from app.models.facility import Facility
+                fac = await db.get(Facility, visit.facility_id)
+                if fac:
+                    fac_text = f"\nFacility: {fac.name}"
+            
+            msg = (
+                f"BintiCare Next Visit:\n"
+                f"Date: {visit_date}\n"
+                f"Purpose: {purpose}"
+                f"{fac_text}"
+            )
+        else:
+            msg = "BintiCare: No upcoming visits scheduled. Contact your facility or doctor to schedule your next ANC visit."
+        
+        await send_sms(webhook.from_number, msg)
+        return
+
+    # 8. MY DOCTOR intent — assigned doctor info
+    if text_clean == "my doctor":
+        from app.utils.sms import send_sms
+        
+        profile = await profile_repository.get_by_user_id(db, user.id)
+        
+        if not profile or not profile.personal_doctor_id:
+            await send_sms(webhook.from_number, "BintiCare: You don't have a doctor assigned yet. Reply REQUEST DOCTOR to get one assigned from your facility.")
+            return
+        
+        doc = await db.get(User, profile.personal_doctor_id)
+        if not doc:
+            await send_sms(webhook.from_number, "BintiCare: Your assigned doctor record could not be found. Please contact your facility.")
+            return
+        
+        # Get facility name
+        fac_text = ""
+        if profile.preferred_facility_id:
+            from app.models.facility import Facility
+            fac = await db.get(Facility, profile.preferred_facility_id)
+            if fac:
+                fac_text = f"\nFacility: {fac.name}"
+        
+        phone_text = f"\nPhone: {doc.phone_number}" if doc.phone_number else ""
+        
+        msg = (
+            f"BintiCare Your Doctor:\n"
+            f"Dr. {doc.full_name}"
+            f"{phone_text}"
+            f"{fac_text}\n"
+            f"For emergencies, reply HELP."
+        )
+        await send_sms(webhook.from_number, msg)
+        return
+
+    # 9. EVENTS intent — upcoming facility events
+    if text_clean == "events":
+        from app.utils.sms import send_sms
+        from app.models.education import EducationEvent
+        from sqlalchemy import select
+        from datetime import datetime as dt
+        
+        profile = await profile_repository.get_by_user_id(db, user.id)
+        
+        if not profile or not profile.preferred_facility_id:
+            await send_sms(webhook.from_number, "BintiCare: Please register with a facility first. Reply GET FACILITIES to search.")
+            return
+        
+        # Fetch upcoming events at the user's facility
+        stmt = (
+            select(EducationEvent)
+            .where(
+                EducationEvent.facility_id == profile.preferred_facility_id,
+                EducationEvent.event_date >= dt.now()
+            )
+            .order_by(EducationEvent.event_date)
+            .limit(3)
+        )
+        res = await db.execute(stmt)
+        events = res.scalars().all()
+        
+        if not events:
+            await send_sms(webhook.from_number, "BintiCare: No upcoming events at your facility right now. Check back later or reply TIPS for health advice.")
+            return
+        
+        event_lines = []
+        for e in events:
+            event_date = e.event_date.strftime("%d %b, %I:%M %p")
+            event_lines.append(f"- {e.title} ({event_date})")
+        
+        msg = "BintiCare Upcoming Events:\n" + "\n".join(event_lines)
+        await send_sms(webhook.from_number, msg)
+        return
+
+    # 10. Unrecognized intent — notify user (unless it's a reminder-linked reply)
     if not webhook.linked_reminder_id:
         from app.utils.sms import send_sms
         
@@ -359,8 +545,9 @@ async def inbound_sms_reply(db: AsyncSession, webhook: SmsInboundWebhook) -> Non
             "BintiCare: Sorry, we didn't recognise that command.\n"
             "Reply MENU to see available options, or try:\n"
             "- VITALS <bp> <weight>\n"
-            "- GET FACILITIES\n"
-            "- REQUEST DOCTOR\n"
+            "- STATUS\n"
+            "- NEXT VISIT\n"
+            "- MY DOCTOR\n"
             "- HELP (for emergencies)"
         )
         await send_sms(webhook.from_number, msg)
