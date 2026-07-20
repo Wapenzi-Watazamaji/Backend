@@ -114,11 +114,13 @@ async def inbound_sms_webhook(
     form_data = await request.form()
     
     # Africa's Talking sends x-www-form-urlencoded
+    # NOTE: AT's 'linkId' is their internal tracking ID, NOT our reminder ID.
+    # Our linkedReminderId is set separately when we send outbound reminder SMS.
     webhook = SmsInboundWebhook(
         **{
             "from": form_data.get("from", ""),
             "text": form_data.get("text", ""),
-            "linkedReminderId": form_data.get("linkId", "")
+            "linkedReminderId": None
         }
     )
     await notification_service.inbound_sms_reply(db, webhook)
