@@ -6,7 +6,7 @@ from collections import Counter, defaultdict
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.cycle import FormTemplate, FormContext, HmbAcknowledgeAction
-from app.repositories import cycle_repository, profile_repository
+from app.repositories import cycle_repository, profile_repository, pregnancy_repository
 from app.schemas.cycle import PredictionRead, TrendRead, CycleLengthMonth, TrendInsight, TopSymptom
 from app.utils.exceptions import NotFoundError, TemplateValidationError
 
@@ -232,6 +232,20 @@ async def list_symptoms(db: AsyncSession, user_id: uuid.UUID, from_date, to_date
 
 
 async def get_predictions(db: AsyncSession, user_id: uuid.UUID) -> PredictionRead:
+    # Periods stop during pregnancy, so "days since last logged period" and
+    # "next period predicted date" are not meaningful while a pregnancy is
+    # active — without this check they grow unbounded from the last entry
+    # logged before conception (e.g. 200+ days into a pregnancy).
+    active_pregnancy = await pregnancy_repository.get_active_pregnancy(db, user_id)
+    if active_pregnancy:
+        return PredictionRead(
+            nextPeriodPredictedDate=None,
+            ovulationWindowStart=None,
+            ovulationWindowEnd=None,
+            averageCycleLengthDays=None,
+            currentCycleDay=None,
+        )
+
     entries = await cycle_repository.get_cycle_entries_for_predictions(db, user_id, limit=12)
 
     if len(entries) == 0:
