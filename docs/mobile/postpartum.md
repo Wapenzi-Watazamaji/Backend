@@ -1,7 +1,9 @@
-# Postpartum Module — API Reference
+# Postpartum Module — API Reference (Mobile / Mother-facing)
 
 **Base path:** `/api/v1/postpartum`
-**Authentication:** All endpoints require a valid Bearer token 🔒
+**Authentication:** All endpoints require a valid Bearer token 🔒 (role `USER`)
+
+> Clinician/facility-admin endpoints for this module (viewing a patient's babies, EPDS history, check-ins, and facility-wide postpartum alert summaries) live in [`docs/web/postpartum-clinical.md`](../web/postpartum-clinical.md).
 
 ---
 

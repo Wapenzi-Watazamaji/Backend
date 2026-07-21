@@ -1,7 +1,9 @@
-# System Templates Module — API Reference
+# System Templates Module — API Reference (Web Dashboard)
 
 **Base path:** `/api/v1/templates`
-**Authentication:** All endpoints require a valid Bearer token 🔒
+**Authentication:** All endpoints require a valid Bearer token 🔒. `GET` endpoints work for any authenticated role; creating/updating a form template requires `FACILITY_ADMIN` + `X-Facility-Context` (🏢).
+
+> The mobile app never calls this generic listing endpoint directly — it fetches the active template for a specific form via each module's own `.../form-template` endpoint (e.g. `GET /pregnancy/vitals/form-template`, see `docs/mobile/pregnancy.md`), which already resolves the facility-specific override vs. platform default for the current patient. This module is the admin tooling behind that resolution: where facility-specific overrides are configured.
 
 ---
 

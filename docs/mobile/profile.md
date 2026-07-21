@@ -1,7 +1,9 @@
-# Profile Module — API Reference
+# Profile Module — API Reference (Mobile / Mother-facing)
 
 **Base path:** `/api/v1/profile`
-**Authentication:** All endpoints require 🔒 `Authorization: Bearer <access_token>`
+**Authentication:** All endpoints require 🔒 `Authorization: Bearer <access_token>` (role `USER`)
+
+> The QR-passport **scan** endpoint (`GET /qr/scan/{token}`) is called by facility staff, not the mobile app — see [`docs/web/facilities.md`](../web/facilities.md#get-qrscantoken) for that side of the QR flow. The mobile app only ever *generates* its own QR token below.
 
 ---
 
@@ -30,7 +32,7 @@ Creates a profile for the authenticated user. Returns `400` if a profile already
 }
 ```
 
-**Response `201 Created`** — `ProfileRead` object (see GET `/me` for the shape).
+**Response `201 Created`** — `ProfileRead` object (see `GET /me` for the shape).
 
 **Errors**
 
@@ -90,7 +92,7 @@ Returns the authenticated user's profile. If no profile record exists yet, one i
 
 ## PUT `/me`
 
-Partially updates the authenticated user's profile. All fields are optional — only send what you want to change.
+Partially updates the authenticated user's profile. All fields are optional — only send what you want to change. This is also where the mother sets her emergency-sharing preference (there is no separate dedicated endpoint for it).
 
 **Request Body**
 ```json
@@ -145,16 +147,14 @@ Partially updates the authenticated user's profile. All fields are optional — 
 
 ## GET `/me/qr`
 
-Returns the user's QR passport token. Generates one if it doesn't exist yet.
+Returns the user's QR passport token. Generates one if it doesn't exist yet. This is the token a facility scans via `GET /qr/scan/{token}` (see `docs/web/facilities.md`) or `GET /qr/scan/{token}/full-history` if implemented for emergency lookups.
 
 **Response `200 OK`**
 ```json
 {
   "success": true,
   "message": "Operation successful",
-  "data": {
-    "qr_passport_token": "abc123xyz..."
-  },
+  "data": { "qr_passport_token": "abc123xyz..." },
   "meta": {}
 }
 ```
@@ -178,9 +178,7 @@ Regenerates the user's QR passport token, invalidating the old one. Use this whe
 {
   "success": true,
   "message": "Operation successful",
-  "data": {
-    "qr_passport_token": "newtoken456..."
-  },
+  "data": { "qr_passport_token": "newtoken456..." },
   "meta": {}
 }
 ```
@@ -195,13 +193,11 @@ Regenerates the user's QR passport token, invalidating the old one. Use this whe
 
 ## POST `/me/personal-doctor-request`
 
-Submits a request to a facility for a personal doctor assignment. Sets `personal_doctor_request_status` to `PENDING` until a `FACILITY_ADMIN` assigns one.
+Submits a request to a facility for a personal doctor assignment. Sets `personal_doctor_request_status` to `PENDING` until a `FACILITY_ADMIN` assigns one (via `PUT /facility-admin/patients/{patient_user_id}/assign-clinician`, see `docs/web/facility-admin.md`).
 
 **Request Body**
 ```json
-{
-  "facility_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
-}
+{ "facility_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6" }
 ```
 
 | Field | Type | Required | Notes |
@@ -220,81 +216,9 @@ Submits a request to a facility for a personal doctor assignment. Sets `personal
 
 ---
 
-## GET `/qr/scan/{token}`
-
-Public endpoint to scan a QR passport token and retrieve the holder's base profile, medical history, and active pregnancy (if any). Used by clinicians/facility staff during emergency lookups.
-
-**Authentication:** None — this is the one endpoint in this module that does **not** require a Bearer token.
-
-**Path Parameters**
-
-| Param | Type | Notes |
-|---|---|---|
-| `token` | string | The `qr_passport_token` value obtained from `GET /me/qr` |
-
-**Response `200 OK`**
-```json
-{
-  "success": true,
-  "message": "QR Passport verified",
-  "data": {
-    "user": {
-      "id": "1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed",
-      "phone_number": "+254712345678",
-      "full_name": "Wanjiru Kamau",
-      "role": "USER",
-      "date_of_birth": "2000-03-14",
-      "gender": "FEMALE",
-      "preferred_language": "en",
-      "county": "Kilifi",
-      "profile_photo_url": null,
-      "is_active": true,
-      "created_at": "2026-07-01T09:00:00Z",
-      "updated_at": "2026-07-01T09:00:00Z"
-    },
-    "profile": { "...": "same shape as GET /me" },
-    "medical_history": {
-      "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-      "patient_user_id": "1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed",
-      "blood_type": "O",
-      "rh_factor": "+",
-      "allergies": ["Penicillin"],
-      "chronic_conditions": [],
-      "current_medications": [],
-      "surgical_history": [],
-      "previous_pregnancies": 1,
-      "previous_outcomes": [],
-      "family_history": [],
-      "custom_fields": null,
-      "created_by": "1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed",
-      "last_updated_by": "1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed",
-      "created_at": "2026-07-01T09:00:00Z",
-      "updated_at": "2026-07-01T09:00:00Z"
-    },
-    "active_pregnancy": null
-  },
-  "meta": {}
-}
-```
-
-| Field | Type | Notes |
-|---|---|---|
-| `user` | object | `UserRead` shape — see `auth.md` |
-| `profile` | object | `ProfileRead` shape — see `GET /me` above |
-| `medical_history` | object \| null | `null` if no medical history record exists |
-| `active_pregnancy` | object \| null | `null` if the user has no active pregnancy — see `pregnancy.md` |
-
-**Errors**
-
-| Status | Code | Trigger |
-|---|---|---|
-| `404` | `NOT_FOUND` | Token does not match any profile (invalid, or was invalidated by a refresh) |
-
----
-
 ## GET `/me/consents` 🔒
 
-Lists all consent grants (active and revoked) the authenticated user has issued — e.g. facilities granted auto-share access to their records.
+Lists all consent grants (active and revoked) the authenticated user has issued — e.g. facilities granted auto-share access to their records, or the AI Companion (see `docs/mobile/ai-companion.md`).
 
 **Response `200 OK`**
 ```json
@@ -320,7 +244,7 @@ Lists all consent grants (active and revoked) the authenticated user has issued 
 | Field | Type | Notes |
 |---|---|---|
 | `consent_type` | enum | `ASK_EVERYTIME` \| `AUTO_SHARE` \| `FACILITY_AUTO_SHARE` |
-| `grantee_id` | string \| null | ID of the facility/entity the consent was granted to |
+| `grantee_id` | string \| null | ID of the facility/entity the consent was granted to (e.g. `"AI_COMPANION"` for the AI consent) |
 | `grantee_name` | string \| null | Display name of the grantee |
 | `active` | boolean | `false` once revoked |
 | `revoked_at` | datetime \| null | Set when the consent is revoked |
@@ -335,13 +259,13 @@ Lists all consent grants (active and revoked) the authenticated user has issued 
 
 ## PUT `/me/consents/{grantee_id}/revoke` 🔒
 
-Revokes an active consent grant for the given grantee. Sets `active` to `false` and stamps `revoked_at`.
+Revokes an active consent grant for the given grantee. Sets `active` to `false` and stamps `revoked_at`. This is also how a mother revokes a facility's standing access to her records (see the referral consent flow in `docs/mobile/referrals-emergencies.md`).
 
 **Path Parameters**
 
 | Param | Type | Notes |
 |---|---|---|
-| `grantee_id` | string | The `grantee_id` of the consent to revoke (e.g. a facility ID) |
+| `grantee_id` | string | The `grantee_id` of the consent to revoke (e.g. a facility ID, or `"AI_COMPANION"`) |
 
 **Request Body** — None.
 

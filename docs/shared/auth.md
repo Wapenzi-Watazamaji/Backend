@@ -1,13 +1,14 @@
 # Auth Module — API Reference
 
 **Base path:** `/api/v1/auth`
+**Used by:** both the mobile app (mother registration/login) and the web dashboard (clinician/facility-admin login) — this is the one module both frontends share, which is why it lives in `shared/` rather than `mobile/` or `web/`.
 **Authentication:** All endpoints are public unless marked 🔒
 
 ---
 
 ## POST `/register`
 
-Registers a new user with a password (full account).
+Registers a new user with a password (full account). In practice this is used by the mobile app for mother self-registration. It technically accepts any `role`, but `CLINICIAN`/`FACILITY_ADMIN` accounts are normally provisioned instead via `POST /facilities/register` (self-service facility signup) or `POST /facility-admin/register-staff` (invited by an existing admin) — see `docs/web/facility-admin.md` and `docs/web/facilities.md`.
 
 **Request Body**
 ```json
@@ -70,7 +71,7 @@ Registers a new user with a password (full account).
 
 ## POST `/register-sms-only`
 
-Registers a patient without a smartphone (no password). Used by facility admins to register patients who will only receive SMS notifications.
+Registers a patient without a smartphone (no password). Intended to be called on a patient's behalf by facility staff — though note this endpoint itself requires **no authentication or role** (it's public). The staff-scoped equivalent used by the web dashboard is `POST /facility-admin/enroll-patient` (see `docs/web/facility-admin.md`), which additionally links the patient to the calling facility. Prefer that one for the web dashboard's "enroll patient" flow.
 
 **Request Body** — Same fields as `/register`, minus `password`.
 ```json
@@ -97,7 +98,7 @@ Registers a patient without a smartphone (no password). Used by facility admins 
 
 ## POST `/login`
 
-Authenticates a user and returns access + refresh tokens.
+Authenticates a user and returns access + refresh tokens. Used by both apps.
 
 **Request Body**
 ```json
@@ -129,9 +130,9 @@ Authenticates a user and returns access + refresh tokens.
 | `refresh_token` | string | |
 | `token_type` | string | Always `"bearer"` |
 | `user_id` | uuid | |
-| `staff_memberships` | array \| null | Only populated when `role` is `CLINICIAN` or `FACILITY_ADMIN`. `null` for `USER` accounts. See shape below. |
+| `staff_memberships` | array \| null | **Web dashboard only.** Populated when `role` is `CLINICIAN` or `FACILITY_ADMIN`. `null` for `USER` (mother) accounts. See shape below. |
 
-**`staff_memberships` item shape**
+**`staff_memberships` item shape** (web dashboard)
 ```json
 {
   "facility_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
@@ -141,7 +142,7 @@ Authenticates a user and returns access + refresh tokens.
 }
 ```
 
-If the user has a staff invite in `INVITE_PENDING` status at the time of login, it is automatically flipped to `ACTIVE` (and `joined_at` is stamped) as part of this call.
+If the user has a staff invite in `INVITE_PENDING` status at the time of login, it is automatically flipped to `ACTIVE` (and `joined_at` is stamped) as part of this call. The web dashboard should use this array to render a facility selector and set `X-Facility-Context` on subsequent calls (see `docs/shared/conventions.md`).
 
 **Token lifetimes**
 - `access_token` — 7 days
@@ -162,28 +163,10 @@ Issues a new access token using a valid refresh token.
 
 **Request Body**
 ```json
-{
-  "refresh_token": "eyJhbGciOiJIUzI1NiIs..."
-}
+{ "refresh_token": "eyJhbGciOiJIUzI1NiIs..." }
 ```
 
-**Response `200 OK`**
-```json
-{
-  "success": true,
-  "message": "Token refreshed successfully",
-  "data": {
-    "access_token": "eyJhbGciOiJIUzI1NiIs...",
-    "refresh_token": "eyJhbGciOiJIUzI1NiIs...",
-    "token_type": "bearer",
-    "user_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-    "staff_memberships": null
-  },
-  "meta": {}
-}
-```
-
-Note: `staff_memberships` is always `null` on refresh (it is only computed during `/login`), even for clinician/facility-admin accounts.
+**Response `200 OK`** — same shape as `/login`. Note: `staff_memberships` is always `null` on refresh (it is only computed during `/login`), even for clinician/facility-admin accounts — the web dashboard should cache it from the login response rather than expecting it here.
 
 **Errors**
 
@@ -197,19 +180,12 @@ Note: `staff_memberships` is always `null` on refresh (it is only computed durin
 
 Logs out the current user. The client must discard both tokens on receipt of this response.
 
-**Headers**
-```
-Authorization: Bearer <access_token>
-```
-
 **Request Body**
 ```json
-{
-  "refresh_token": "eyJhbGciOiJIUzI1NiIs..."
-}
+{ "refresh_token": "eyJhbGciOiJIUzI1NiIs..." }
 ```
 
-**Response `204 No Content`** — Empty body.
+**Response `204 No Content`**
 
 **Errors**
 
@@ -221,12 +197,7 @@ Authorization: Bearer <access_token>
 
 ## GET `/me` 🔒
 
-Returns the profile of the currently authenticated user.
-
-**Headers**
-```
-Authorization: Bearer <access_token>
-```
+Returns the currently authenticated user's own `User` record (not the extended `Profile` — mobile clients should follow up with `GET /profile/me`, see `docs/mobile/profile.md`).
 
 **Response `200 OK`**
 ```json
@@ -255,14 +226,13 @@ Authorization: Bearer <access_token>
 
 | Status | Code | Trigger |
 |---|---|---|
-| `401` | `UNAUTHORIZED` | Missing, expired, or invalid access token |
-| `401` | `UNAUTHORIZED` | User account is inactive |
+| `401` | `UNAUTHORIZED` | Missing, expired, or invalid access token, or account inactive |
 
 ---
 
-## GET `/me/landing-summary` 🔒
+## GET `/me/landing-summary` 🔒 — Web dashboard only
 
-Post-login landing summary for the currently authenticated user — active alert count, active labour session count, and pending referral count. Intended for clinicians/facility admins to populate their dashboard immediately after login.
+Post-login landing summary — active alert count, active labour session count, and pending referral count. Meant for the web dashboard to populate its shell immediately after login; a mother's mobile session has no practical use for this endpoint.
 
 **Headers**
 ```
@@ -290,31 +260,7 @@ If `X-Facility-Context` is provided and is a valid UUID, counts are scoped to th
 
 | Status | Code | Trigger |
 |---|---|---|
-| `401` | `UNAUTHORIZED` | Missing, expired, or invalid access token |
-| `401` | `UNAUTHORIZED` | User account is inactive |
-
----
-
-## Standard Error Response Shape
-
-All errors follow this envelope:
-
-```json
-{
-  "success": false,
-  "data": null,
-  "meta": null,
-  "error": {
-    "code": "PHONE_ALREADY_REGISTERED",
-    "message": "Phone number is already registered",
-    "fields": {
-      "phoneNumber": "Already in use"
-    }
-  }
-}
-```
-
-`fields` is only present on validation errors that map to specific request fields.
+| `401` | `UNAUTHORIZED` | Missing, expired, or invalid access token, or account inactive |
 
 ---
 
@@ -327,3 +273,5 @@ All errors follow this envelope:
 | `account_type` | `FULL`, `SMS_ONLY` *(set automatically by the server — not accepted in requests)* |
 | `staff_memberships[].role` | `CLINICIAN`, `FACILITY_ADMIN` |
 | `staff_memberships[].status` | `ACTIVE`, `INVITE_PENDING`, `DEACTIVATED` |
+
+See `docs/shared/conventions.md` for the response envelope and standard error codes.

@@ -1,4 +1,4 @@
-# Facilities Module — API Reference
+# Facilities Module — API Reference (Web Dashboard)
 
 **Base path:** `/api/v1/facilities`
 **Authentication:** Varies per endpoint — see the legend below each heading.
@@ -7,12 +7,13 @@
 - 🔑 Requires a specific user role
 - 🏢 Requires header `X-Facility-Context: <facility_id>` (the UUID of a facility the caller is an **active** staff member of)
 
+> Public facility browsing/search (`GET /`, `GET /{facility_id}`, `GET /nearby`) is documented in [`docs/mobile/facilities.md`](../mobile/facilities.md) instead — those endpoints work identically for staff callers if you need them, they're just primarily a mobile feature.
+
 ---
 
 ## POST `/register`
 
-Public endpoint for facilities to register themselves on the Binti Care platform.
-This is an atomic operation that:
+Public endpoint for facilities to register themselves on the platform. This is an atomic operation that:
 1. Creates the `Facility` record (status: `PENDING_VERIFICATION`).
 2. Creates an `AccountType.FULL` user with role `FACILITY_ADMIN`.
 3. Links the user to the facility via a `StaffMember` record.
@@ -33,10 +34,7 @@ This is an atomic operation that:
     "latitude": -1.2921,
     "longitude": 36.8219,
     "services_offered": ["ANTENATAL_CARE", "DELIVERY"],
-    "readiness": {
-      "bloodBankStocked": true,
-      "maternityBedsAvailable": 12
-    }
+    "readiness": { "bloodBankStocked": true, "maternityBedsAvailable": 12 }
   },
   "admin_account": {
     "full_name": "Dr. Jane Doe",
@@ -105,127 +103,11 @@ This is an atomic operation that:
 
 ---
 
-## GET `/`
-
-Fetch a list of all facilities.
-
-**Authentication:** None (Public) or 🔒 `Authorization: Bearer <access_token>` depending on setup.
-
-**Query Parameters**
-| Parameter | Type | Required | Default | Notes |
-|---|---|---|---|---|
-| `search` | string | ❌ | | Optional search term to filter facilities by name |
-
-**Response `200 OK`**
-```json
-{
-  "success": true,
-  "message": "Facilities fetched successfully",
-  "data": [
-    {
-      "id": "fac-uuid",
-      "name": "Nairobi Hospital",
-      "type": "PRIVATE",
-      "county": "Nairobi",
-      "status": "VERIFIED",
-      "is_active": true,
-      "...": "..."
-    }
-  ],
-  "meta": {}
-}
-```
-
----
-
-## GET `/{facility_id}`
-
-Retrieve the details of a specific facility by its UUID.
-
-**Authentication:** None (Public) or 🔒 `Authorization: Bearer <access_token>` depending on setup.
-
-**Path Parameters**
-- `facility_id` (uuid): The ID of the facility to fetch.
-
-**Response `200 OK`**
-```json
-{
-  "success": true,
-  "message": "Facility fetched successfully",
-  "data": {
-    "id": "fac-uuid",
-    "name": "Nairobi Hospital",
-    "type": "PRIVATE",
-    "county": "Nairobi",
-    "status": "VERIFIED",
-    "is_active": true,
-    "...": "..."
-  },
-  "meta": {}
-}
-```
-
----
-
-## GET `/nearby`
-
-Finds all active facilities within a specified radius, calculating straight-line distance using the Haversine formula based on the user's provided coordinates. The results are ordered by distance (closest first). Facilities without coordinates set are excluded.
-
-**Authentication:** 🔒 `Authorization: Bearer <access_token>` (any role)
-
-**Query Parameters**
-
-| Parameter | Type | Required | Default | Notes |
-|---|---|---|---|---|
-| `lat` | float | ✅ | | Latitude of the patient/user |
-| `lng` | float | ✅ | | Longitude of the patient/user |
-| `radius_km` | float | ❌ | `50.0` | Maximum search radius in kilometers |
-| `limit` | int | ❌ | `20` | Max number of results to return |
-
-**Response `200 OK`**
-```json
-{
-  "success": true,
-  "message": "Nearby facilities fetched successfully",
-  "data": [
-    {
-      "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-      "name": "Nairobi Hospital",
-      "type": "PRIVATE",
-      "county": "Nairobi",
-      "address": "Argwings Kodhek Rd",
-      "phone_number": "+254700000001",
-      "email": "info@nairobihospital.org",
-      "latitude": -1.295,
-      "longitude": 36.805,
-      "status": "VERIFIED",
-      "is_active": true,
-      "services_offered": ["ANTENATAL_CARE", "DELIVERY"],
-      "readiness": {},
-      "updated_at": "2026-07-01T12:00:00Z",
-      "distance_km": 2.45
-    }
-  ],
-  "meta": {}
-}
-```
-
-**Errors**
-
-| Status | Code | Trigger |
-|---|---|---|
-| `401` | `UNAUTHORIZED` | Missing, expired, or invalid access token |
-| `422` | `VALIDATION_ERROR` | `lat`/`lng` missing or not numeric |
-
----
-
 ## GET `/current`
 
-Retrieve the details of the facility currently set in context. Intended for staff (clinicians/facility admins) viewing their own facility, not for `USER`-role mothers.
+Retrieve the details of the facility currently set in context.
 
-**Authentication:**
-- 🔒 `Authorization: Bearer <access_token>`
-- 🏢 Header: `X-Facility-Context: <facility_id>`
+**Authentication:** 🔒 · 🏢
 
 **Response `200 OK`**
 ```json
@@ -264,22 +146,16 @@ Retrieve the details of the facility currently set in context. Intended for staf
 
 ## PUT `/current`
 
-Update a facility's details or readiness metrics.
+Update the current facility's details or readiness metrics.
 
-**Authentication:**
-- 🔒 `Authorization: Bearer <access_token>`
-- 🔑 Required Role: `FACILITY_ADMIN`
-- 🏢 Header: `X-Facility-Context: <facility_id>`
+**Authentication:** 🔒 · 🔑 `FACILITY_ADMIN` · 🏢
 
 **Request Body** (all fields optional — only send what you want to change)
 ```json
 {
   "email": "new.email@nairobihospital.org",
   "services_offered": ["ANTENATAL_CARE", "DELIVERY", "NEONATAL_ICU"],
-  "readiness": {
-    "bloodBankStocked": true,
-    "maternityBedsAvailable": 12
-  }
+  "readiness": { "bloodBankStocked": true, "maternityBedsAvailable": 12 }
 }
 ```
 
@@ -293,7 +169,7 @@ Update a facility's details or readiness metrics.
 | `latitude` | float | ❌ | Must be between `-90` and `90` |
 | `longitude` | float | ❌ | Must be between `-180` and `180` |
 | `services_offered` | string[] | ❌ | Replaces the full list |
-| `readiness` | object | ❌ | Replaces the full object |
+| `readiness` | object | ❌ | Replaces the full object — this is what powers the mobile "time to nearest care" / facility readiness display |
 
 Note: `type` and `status` cannot be changed via this endpoint.
 
@@ -312,12 +188,9 @@ Note: `type` and `status` cannot be changed via this endpoint.
 
 ## GET `/current/stats`
 
-Returns aggregate counts for the current facility's dashboard: staff headcount, on-duty staff, total assigned patients, and pending emergencies.
+Aggregate counts for the current facility's dashboard: staff headcount, on-duty staff, total assigned patients, and pending emergencies.
 
-**Authentication:**
-- 🔒 `Authorization: Bearer <access_token>`
-- 🔑 Required Role: `FACILITY_ADMIN`
-- 🏢 Header: `X-Facility-Context: <facility_id>`
+**Authentication:** 🔒 · 🔑 `FACILITY_ADMIN` · 🏢
 
 **Response `200 OK`**
 ```json
@@ -352,12 +225,9 @@ Returns aggregate counts for the current facility's dashboard: staff headcount, 
 
 ## GET `/staff`
 
-Get a list of all staff members at the facility.
+List all staff members at the facility.
 
-**Authentication:**
-- 🔒 `Authorization: Bearer <access_token>`
-- 🔑 Required Role: `FACILITY_ADMIN`
-- 🏢 Header: `X-Facility-Context: <facility_id>`
+**Authentication:** 🔒 · 🔑 `FACILITY_ADMIN` · 🏢
 
 **Response `200 OK`** — Array of `StaffMemberRead` objects (see shape below).
 
@@ -374,19 +244,14 @@ Get a list of all staff members at the facility.
 
 Get details for a specific staff member.
 
-**Authentication:**
-- 🔒 `Authorization: Bearer <access_token>`
-- 🔑 Required Role: `FACILITY_ADMIN`
-- 🏢 Header: `X-Facility-Context: <facility_id>`
+**Authentication:** 🔒 · 🔑 `FACILITY_ADMIN` · 🏢
 
-**Response `200 OK`** — `StaffMemberRead` object (see shape below).
+**Response `200 OK`** — `StaffMemberRead` object.
 
 **Errors**
 
 | Status | Code | Trigger |
 |---|---|---|
-| `401` | `UNAUTHORIZED` | Missing, expired, or invalid access token |
-| `403` | `FORBIDDEN` | Caller is not a `FACILITY_ADMIN`, or `X-Facility-Context` is missing/invalid/not a membership |
 | `404` | `NOT_FOUND` | `staff_id` does not exist, or belongs to a different facility than the one in context |
 
 ---
@@ -395,10 +260,7 @@ Get details for a specific staff member.
 
 Update details for a specific staff member (e.g. changing their role, specialty, or duty/active status).
 
-**Authentication:**
-- 🔒 `Authorization: Bearer <access_token>`
-- 🔑 Required Role: `FACILITY_ADMIN`
-- 🏢 Header: `X-Facility-Context: <facility_id>`
+**Authentication:** 🔒 · 🔑 `FACILITY_ADMIN` · 🏢
 
 **Request Body** (all fields optional)
 ```json
@@ -417,14 +279,12 @@ Update details for a specific staff member (e.g. changing their role, specialty,
 | `status` | enum | ❌ | `ACTIVE` \| `INVITE_PENDING` \| `DEACTIVATED` |
 | `is_on_duty` | boolean | ❌ | |
 
-**Response `200 OK`** — Updated `StaffMemberRead` object (see shape below).
+**Response `200 OK`** — Updated `StaffMemberRead` object.
 
 **Errors**
 
 | Status | Code | Trigger |
 |---|---|---|
-| `401` | `UNAUTHORIZED` | Missing, expired, or invalid access token |
-| `403` | `FORBIDDEN` | Caller is not a `FACILITY_ADMIN`, or `X-Facility-Context` is missing/invalid/not a membership |
 | `404` | `NOT_FOUND` | `staff_id` does not exist, or belongs to a different facility than the one in context |
 | `422` | `VALIDATION_ERROR` | Invalid enum value |
 
@@ -432,12 +292,9 @@ Update details for a specific staff member (e.g. changing their role, specialty,
 
 ## POST `/staff/{staff_id}/assign-patients`
 
-Bulk assign an array of patient profiles to a specific clinician/staff member. This automatically decrements the patients from their previous doctors (if any), assigns them to the new doctor, and updates the new doctor's `assigned_patient_count` in real-time. Also sets each patient's `personal_doctor_request_status` to `ASSIGNED`.
+Bulk-assign an array of patient profiles to a specific clinician/staff member. Automatically decrements the patients from their previous doctors (if any), assigns them to the new doctor, and updates the new doctor's `assigned_patient_count` in real time. Also sets each patient's `personal_doctor_request_status` to `ASSIGNED`.
 
-**Authentication:**
-- 🔒 `Authorization: Bearer <access_token>`
-- 🔑 Required Role: `FACILITY_ADMIN`
-- 🏢 Header: `X-Facility-Context: <facility_id>`
+**Authentication:** 🔒 · 🔑 `FACILITY_ADMIN` · 🏢
 
 **Request Body**
 ```json
@@ -453,14 +310,14 @@ Bulk assign an array of patient profiles to a specific clinician/staff member. T
 |---|---|---|---|
 | `patient_profile_ids` | UUID[] | ✅ | List of `Profile.id` values (not user IDs) |
 
-**Response `200 OK`** — The updated `StaffMemberRead` object for the target clinician, reflecting their new `assigned_patient_count` load.
+**Response `200 OK`** — The updated `StaffMemberRead` object for the target clinician.
+
+> There is also a simpler user-ID-based bulk-assign endpoint: `POST /facility-admin/bulk-reassign` — see `docs/web/facility-admin.md`. Prefer that one unless you specifically have `Profile.id` values on hand.
 
 **Errors**
 
 | Status | Code | Trigger |
 |---|---|---|
-| `401` | `UNAUTHORIZED` | Missing, expired, or invalid access token |
-| `403` | `FORBIDDEN` | Caller is not a `FACILITY_ADMIN`, or `X-Facility-Context` is missing/invalid/not a membership |
 | `404` | `NOT_FOUND` | `staff_id` does not exist, or belongs to a different facility than the one in context |
 | `422` | `VALIDATION_ERROR` | `patient_profile_ids` missing or contains a non-UUID value |
 
@@ -470,41 +327,84 @@ Bulk assign an array of patient profiles to a specific clinician/staff member. T
 
 List all patient profiles currently assigned to the given staff member as their personal doctor.
 
-**Authentication:**
-- 🔒 `Authorization: Bearer <access_token>`
-- 🔑 Required Role: `FACILITY_ADMIN`
-- 🏢 Header: `X-Facility-Context: <facility_id>`
+**Authentication:** 🔒 · 🔑 `FACILITY_ADMIN` · 🏢
 
-**Response `200 OK`** — Array of `ProfileRead` objects (see `profile.md` for the shape).
-
-**Errors**
-
-| Status | Code | Trigger |
-|---|---|---|
-| `401` | `UNAUTHORIZED` | Missing, expired, or invalid access token |
-| `403` | `FORBIDDEN` | Caller is not a `FACILITY_ADMIN`, or `X-Facility-Context` is missing/invalid/not a membership |
-| `404` | `NOT_FOUND` | `staff_id` does not exist, or belongs to a different facility than the one in context |
+**Response `200 OK`** — Array of `ProfileRead` objects.
 
 ---
 
 ## GET `/clinician/my-patients`
 
-List all patient profiles currently assigned to the **authenticated caller** (as personal doctor) at the given facility. Self-service equivalent of `GET /staff/{staff_id}/patients` — clinicians use this to fetch their own caseload without needing their own `staff_id`.
+List all patient profiles currently assigned to the **authenticated caller** at the given facility. Self-service equivalent of `GET /staff/{staff_id}/patients` — clinicians use this to fetch their own caseload without needing their own `staff_id`.
 
-**Authentication:**
-- 🔒 `Authorization: Bearer <access_token>`
-- 🔑 Required Role: `CLINICIAN` or `FACILITY_ADMIN`
-- 🏢 Header: `X-Facility-Context: <facility_id>`
+**Authentication:** 🔒 · 🔑 `CLINICIAN` or `FACILITY_ADMIN` · 🏢
 
-**Response `200 OK`** — Array of `ProfileRead` objects (see `profile.md` for the shape).
+**Response `200 OK`** — Array of `ProfileRead` objects.
 
 **Errors**
 
 | Status | Code | Trigger |
 |---|---|---|
-| `401` | `UNAUTHORIZED` | Missing, expired, or invalid access token |
-| `403` | `FORBIDDEN` | Caller is not a `CLINICIAN`/`FACILITY_ADMIN`, or `X-Facility-Context` is missing/invalid/not a membership |
 | `404` | `NOT_FOUND` | Caller has no staff record at the facility in context |
+
+---
+
+## GET `/qr/scan/{token}`
+
+*(Path lives under `/api/v1/profile`, not `/api/v1/facilities` — grouped here because it's the facility-side half of the QR passport flow described in `docs/mobile/profile.md`.)*
+
+Scans a mother's QR passport token and retrieves her base profile, medical history, and active pregnancy (if any) — used during walk-in/emergency lookups.
+
+**Authentication:** None (Public) — any facility device can call this if it has the token, since the token itself is the credential.
+
+**Path Parameters**
+
+| Param | Type | Notes |
+|---|---|---|
+| `token` | string | The `qr_passport_token` value the mother's app fetched via `GET /profile/me/qr` |
+
+**Response `200 OK`**
+```json
+{
+  "success": true,
+  "message": "QR Passport verified",
+  "data": {
+    "user": { "...": "UserRead shape" },
+    "profile": { "...": "ProfileRead shape" },
+    "medical_history": {
+      "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+      "patient_user_id": "1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed",
+      "blood_type": "O",
+      "rh_factor": "+",
+      "allergies": ["Penicillin"],
+      "chronic_conditions": [],
+      "current_medications": [],
+      "surgical_history": [],
+      "previous_pregnancies": 1,
+      "previous_outcomes": [],
+      "family_history": [],
+      "custom_fields": null,
+      "created_by": "1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed",
+      "last_updated_by": "1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed",
+      "created_at": "2026-07-01T09:00:00Z",
+      "updated_at": "2026-07-01T09:00:00Z"
+    },
+    "active_pregnancy": null
+  },
+  "meta": {}
+}
+```
+
+| Field | Type | Notes |
+|---|---|---|
+| `medical_history` | object \| null | `null` if no medical history record exists — see `docs/web/medical-history.md` |
+| `active_pregnancy` | object \| null | `null` if the mother has no active pregnancy — see `docs/web/pregnancy-clinical.md` |
+
+**Errors**
+
+| Status | Code | Trigger |
+|---|---|---|
+| `404` | `NOT_FOUND` | Token does not match any profile (invalid, or was invalidated by a refresh) |
 
 ---
 
@@ -512,7 +412,7 @@ List all patient profiles currently assigned to the **authenticated caller** (as
 
 Returned by `GET /staff`, `GET /staff/{staff_id}`, `PUT /staff/{staff_id}`, and `POST /staff/{staff_id}/assign-patients`.
 
-> Staff members are **created** via `POST /api/v1/facility-admin/register-staff`, documented in `facility_admin_api.md` — not in this module.
+> Staff members are **created** via `POST /facility-admin/register-staff`, documented in `docs/web/facility-admin.md` — not in this module.
 
 ```json
 {
@@ -536,29 +436,6 @@ Returned by `GET /staff`, `GET /staff/{staff_id}`, `PUT /staff/{staff_id}`, and 
 | `status` | enum | `ACTIVE` \| `INVITE_PENDING` \| `DEACTIVATED` |
 | `assigned_patient_count` | integer | Maintained automatically by the assignment endpoints |
 | `joined_at` | datetime \| null | `null` until the staff member's status becomes `ACTIVE` |
-
----
-
-## Note on Staff Logins
-
-When a user with role `CLINICIAN` or `FACILITY_ADMIN` logs in via `POST /api/v1/auth/login`, the response token now includes their active `staff_memberships`:
-
-```json
-{
-  "access_token": "...",
-  "refresh_token": "...",
-  "token_type": "bearer",
-  "staff_memberships": [
-    {
-      "facility_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-      "facility_name": "Nairobi Hospital",
-      "role": "FACILITY_ADMIN",
-      "status": "ACTIVE"
-    }
-  ]
-}
-```
-Frontends should use this array to display the facility selector, and set the `X-Facility-Context` header to the selected `facility_id` on subsequent API calls.
 
 ---
 
